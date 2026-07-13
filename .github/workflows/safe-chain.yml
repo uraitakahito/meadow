@@ -1,0 +1,25 @@
+name: safe-chain
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Setup safe-chain
+        run: |
+          npm i -g @aikidosec/safe-chain
+          safe-chain setup-ci
+      - name: Install dependencies
+        env:
+          SAFE_CHAIN_MINIMUM_PACKAGE_AGE_HOURS: 5
+        run: npm ci

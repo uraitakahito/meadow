@@ -1,0 +1,49 @@
+{
+  "name": "meadow",
+  "version": "0.1.0",
+  "description": "Shared Fastify fixture-origin — the synthetic internet that Chrome visits in BrowserHive and waggle integration tests.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "site"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "start": "node dist/serve.js",
+    "check": "npm run typecheck && npm run lint && npm test"
+  },
+  "keywords": [
+    "fastify",
+    "fixture",
+    "test",
+    "browserhive",
+    "waggle"
+  ],
+  "author": "Takahito Urai",
+  "license": "The Unlicense",
+  "dependencies": {
+    "@fastify/static": "^10.1.0",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.2.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import-x": "^4.16.1",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.48.0",
+    "vitest": "^3.2.0"
+  }
+}
