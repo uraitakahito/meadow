@@ -9,7 +9,18 @@ export default defineConfig(
   // Global ignores
   //
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts'],
+    // docs-site/ is an Astro project with its own tsconfig and dependency tree;
+    // linting it from here would judge Astro's code with this project's
+    // type-aware rules, which cannot resolve it. scripts/ is plain Node ESM
+    // outside the tsc project for the same reason.
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'eslint.config.mjs',
+      'vitest.config.mts',
+      'docs-site/**',
+      'scripts/**',
+    ],
   },
 
   //

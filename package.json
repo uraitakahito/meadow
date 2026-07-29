@@ -1,7 +1,7 @@
 {
   "name": "meadow",
   "version": "0.1.0",
-  "description": "Shared Fastify fixture-origin — the synthetic internet that Chrome visits in BrowserHive and waggle integration tests.",
+  "description": "Shared Fastify fixture-origin \u2014 the synthetic internet that Chrome visits in BrowserHive and waggle integration tests.",
   "type": "module",
   "exports": {
     ".": {
@@ -21,6 +21,10 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "start": "node dist/serve.js",
+    "site:dev": "npm --prefix docs-site run dev",
+    "site:build": "npm --prefix docs-site run build",
+    "site:preview": "npm --prefix docs-site run preview",
+    "site:check": "npm run site:build && node scripts/check-doc-refs.mjs",
     "check": "npm run typecheck && npm run lint && npm test"
   },
   "keywords": [
