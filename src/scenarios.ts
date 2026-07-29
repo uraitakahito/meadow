@@ -5,6 +5,7 @@
  * Static scenarios are plain strings; parameterised ones are builder functions.
  * Prefix each with the fixture origin, e.g. `` `http://${ip}:8080` + scenarios.ok ``.
  */
+// #region scenarios
 export const scenarios = {
   /** Plain 200 HTML — the success baseline. */
   ok: "/ok",
@@ -38,5 +39,6 @@ export const scenarios = {
   /** A static asset served from `site/`, e.g. `scenarios.asset("hero.svg")`. */
   asset: (path: string): string => `/assets/${path}`,
 } as const;
+// #endregion
 
 export type Scenarios = typeof scenarios;
