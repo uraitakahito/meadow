@@ -22,6 +22,12 @@ export const scenarios = {
 
   /** Waits `ms` before responding — exercises page-load timeouts. */
   slow: (ms: number): string => `/slow?ms=${String(ms)}`,
+  /**
+   * Holds the page's main thread `holdMs` at a time for `repeatForMs` — makes a
+   * consumer's per-operation timeout expire against a real browser.
+   */
+  blockMainThread: (holdMs: number, repeatForMs: number): string =>
+    `/block-main-thread?holdMs=${String(holdMs)}&repeatForMs=${String(repeatForMs)}`,
   /** Responds with an arbitrary HTTP status — exercises the non-2xx branch. */
   status: (code: number): string => `/status/${String(code)}`,
   /** Server-side 302 chain of length `n`, ending at {@link scenarios.landed}. */

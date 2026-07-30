@@ -126,6 +126,28 @@ describe("introspection", () => {
   });
 });
 
+describe("block-main-thread", () => {
+  it("embeds both durations", async () => {
+    const res = await app.inject("/block-main-thread?holdMs=6000&repeatForMs=20000");
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("Date.now() + 20000");
+    expect(res.body).toContain("Date.now() + 6000");
+  });
+
+  it("does not block parsing — the holding starts from a setTimeout", async () => {
+    // If this regresses, the cost lands on the consumer's navigation budget
+    // instead of its in-page operation budgets, and the scenario silently
+    // stops testing what it exists to test.
+    const res = await app.inject("/block-main-thread");
+    expect(res.body).toContain("setTimeout(holdThread, 0);\n</script>");
+  });
+
+  it("caps repeatForMs so a page cannot hold its thread forever", async () => {
+    const res = await app.inject("/block-main-thread?repeatForMs=999999");
+    expect(res.body).toContain("Date.now() + 30000");
+  });
+});
+
 describe("static assets", () => {
   it("serves /assets/hero.svg", async () => {
     const res = await app.inject("/assets/hero.svg");

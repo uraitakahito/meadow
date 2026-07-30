@@ -92,6 +92,32 @@ Note where the delay is: before the *response*, not during it. The socket is
 open and nothing arrives — the case that hangs a naive fetch forever. For a
 response that starts and then stalls, use `/drip`.
 
+### `/block-main-thread?holdMs=&repeatForMs=` — a page that stops responding
+
+Holds the page's main thread for `holdMs` at a time, repeating for
+`repeatForMs`. While it is held, nothing else in the page runs: `setTimeout`
+callbacks cannot fire and an injected `page.evaluate` cannot even start.
+
+**This is not the same as a slow network.** `/slow` delays the *response*; the
+page it eventually serves works normally. Here the response is instant and the
+page is the thing that stops working. A consumer that only ever tested against
+slow responses has never exercised the timeouts that guard its in-page
+operations, because nothing it did could make them expire.
+
+That is what this route is for. BrowserHive wraps each browser operation in a
+budget that asks *"is this one operation stuck?"*, and those budgets are worth
+very little until something has proved they still fire. In particular they must
+keep firing when `operationDelayMs` is in play — a capture deliberately slowed
+down is not a capture that may run forever.
+
+**The holding starts from a `setTimeout`, never during parsing.** Blocking the
+parse would delay `DOMContentLoaded` itself, and the cost would land on the
+consumer's *navigation* budget (30s in BrowserHive) instead of the much tighter
+budgets around in-page work (5s). Same page, entirely different test.
+
+`repeatForMs` is capped at 30000. A page that holds its thread forever outlives
+the capture that asked for it and wedges whatever runs next in the same tab.
+
 ### `/status/:code` — the non-2xx branch
 
 Returns exactly the status asked for, with a body. Any code: `/status/404`,
