@@ -48,6 +48,40 @@ const SET_COOKIE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title
 const FLAKY_RETRY_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>retry</title></head><body><h1>retry</h1></body></html>`;
 const FLAKY_OK_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>ok</title></head><body><h1>ok</h1></body></html>`;
 
+/**
+ * Hold the page's main thread for `holdMs` at a time, repeating for
+ * `repeatForMs`. While it is held nothing else in the page runs: `setTimeout`
+ * callbacks cannot fire and `page.evaluate` cannot even start.
+ *
+ * This is the only way an origin can make a capture's per-operation budget
+ * expire. A slow *response* (`/slow`) delays the navigation; it does not stop
+ * the page from working once it has loaded.
+ *
+ * The holding starts from a `setTimeout`, not during parsing. Blocking the
+ * parse would delay `DOMContentLoaded` itself, which pushes the cost onto the
+ * navigation's 30s budget instead of the 5s budgets that guard the in-page
+ * operations — a different thing entirely.
+ */
+const blockMainThreadHtml = (holdMs: number, repeatForMs: number): string => `<!doctype html>
+<html><head><meta charset="utf-8"><title>blocked</title></head><body><h1>blocked</h1>
+<script>
+const deadline = Date.now() + ${String(repeatForMs)};
+const holdThread = () => {
+  if (Date.now() >= deadline) { document.title = "unblocked"; return; }
+  const until = Date.now() + ${String(holdMs)};
+  while (Date.now() < until) { /* synchronous: nothing else in the page runs */ }
+  setTimeout(holdThread, 0);
+};
+setTimeout(holdThread, 0);
+</script>
+</body></html>`;
+
+/**
+ * Ceiling for `repeatForMs`. A page that holds its thread forever survives the
+ * capture that asked for it and wedges whatever runs next in the same tab.
+ */
+const MAX_REPEAT_FOR_MS = 30_000;
+
 /** Trickle `bytes` bytes of "a" over roughly `ms` milliseconds, in ~10 chunks. */
 async function* dripBody(bytes: number, ms: number): AsyncGenerator<Buffer> {
   const chunks = 10;
@@ -107,6 +141,18 @@ export function buildFixture(): FastifyInstance {
     await new Promise((resolve) => setTimeout(resolve, ms));
     return reply.type("text/html").send(`<!doctype html><h1>slept ${String(ms)}ms</h1>`);
   });
+
+  app.get<{ Querystring: { holdMs?: string; repeatForMs?: string } }>(
+    "/block-main-thread",
+    (request, reply) => {
+      const holdMs = Number(request.query.holdMs ?? "1000");
+      const repeatForMs = Math.min(
+        Number(request.query.repeatForMs ?? "10000"),
+        MAX_REPEAT_FOR_MS,
+      );
+      return reply.type("text/html").send(blockMainThreadHtml(holdMs, repeatForMs));
+    },
+  );
 
   app.get<{ Params: { code: string } }>("/status/:code", (request, reply) => {
     const code = Number(request.params.code);
