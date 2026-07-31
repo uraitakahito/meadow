@@ -217,3 +217,32 @@ container during startup, not for a test to assert on.
 ```sh
 until curl -sf "http://${MEADOW_IP}:8080/health" >/dev/null; do sleep 1; done
 ```
+
+### `GET /__version`
+
+Which build is answering.
+
+```json
+{ "version": "0.5.0", "revision": "abc1234", "buildTime": "2026-08-01T03:12:44.108Z" }
+```
+
+Separate from `/health` on purpose. That route answers *are you up*, asked in a
+tight loop by readiness waits; this one answers *which meadow is this*, asked
+when a test fails for no visible reason and you start wondering whether the
+container in front of you was ever rebuilt.
+
+`revision` is the one that earns its place. A tag only moves at release time,
+so during development every build reports the same `version` — but `revision`
+changes with every commit, and comparing it against the submodule your consumer
+pins is what catches a container you forgot to rebuild:
+
+```sh
+running=$(curl -s "http://${MEADOW_IP}:8080/__version" | jq -r .revision)
+pinned=$(git -C meadow rev-parse --short HEAD)
+[ "$running" = "$pinned" ] || echo "meadow is stale: $running vs $pinned"
+```
+
+`version` reads `unknown` and `revision` reads `dev` when the image was built
+without `GIT_TAG` / `GIT_REV`. That is not a failure — it says the build did not
+record where it came from, which is exactly the state in which staleness goes
+unnoticed.
