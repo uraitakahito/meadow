@@ -223,3 +223,31 @@ beforeEach(async () => {
 ```sh
 until curl -sf "http://${MEADOW_IP}:8080/health" >/dev/null; do sleep 1; done
 ```
+
+### `GET /__version`
+
+いま応答しているのがどのビルドか。
+
+```json
+{ "version": "0.5.0", "revision": "abc1234", "buildTime": "2026-08-01T03:12:44.108Z" }
+```
+
+`/health` とは意図的に分けています。あちらは「生きているか」を問うもので、
+起動待ちのループから短い間隔で叩かれます。こちらが答えるのは「これはどの
+meadow か」― テストが理由の見えない落ち方をして、目の前のコンテナは
+そもそも焼き直されたのか、と疑い始めたときに訊く問いです。
+
+**効くのは `revision` です。** タグはリリース時にしか動かないので、開発中は
+どのビルドも同じ `version` を名乗ります。`revision` はコミットごとに変わるので、
+利用側が pin している submodule と突き合わせれば、焼き直し忘れたコンテナが
+そこで捕まります。
+
+```sh
+running=$(curl -s "http://${MEADOW_IP}:8080/__version" | jq -r .revision)
+pinned=$(git -C meadow rev-parse --short HEAD)
+[ "$running" = "$pinned" ] || echo "meadow が古い: $running vs $pinned"
+```
+
+`GIT_TAG` / `GIT_REV` を渡さずに焼いたイメージは `version` が `unknown`、
+`revision` が `dev` になります。これは失敗ではなく、**そのビルドが由来を
+記録していない**という報告です ― 古さが見過ごされるのは、まさにその状態です。
