@@ -51,6 +51,9 @@ instead — BrowserHive's stack runs it as `meadow.browserhive:8080`.
 
 ### Configuration
 
+Two environment variables, read once at startup by the container entrypoint
+(`node dist/serve.js`):
+
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `MEADOW_PORT` | `8080` | Port to listen on |
@@ -58,6 +61,41 @@ instead — BrowserHive's stack runs it as `meadow.browserhive:8080`.
 
 `0.0.0.0` is the point of the default: binding loopback would make the container
 unreachable from the browser VM, which is the whole reason the container exists.
+**There is rarely a reason to change either one** — the defaults are what the
+consumers expect.
+
+If you do need to, pass them the way you pass any environment variable.
+
+```sh
+# container / docker
+container run -d --name meadow -e MEADOW_PORT=9090 meadow
+```
+
+```yaml
+# compose
+services:
+  meadow:
+    build: ./meadow
+    environment:
+      MEADOW_PORT: "9090"
+```
+
+```sh
+# straight from a checkout, no container
+npm run build && MEADOW_PORT=9090 npm start
+```
+
+:::caution[Changing the port takes two edits, not one]
+The `Dockerfile` carries `EXPOSE 8080`, and the consumers' URLs carry `:8080`
+too. Setting `MEADOW_PORT` alone moves the listener while everything pointing at
+it keeps saying 8080 — the container comes up healthy and nothing can reach it.
+Change the published port and the consumer's origin in the same breath.
+:::
+
+**As a library, these are ignored.** `buildFixture()` returns an unstarted
+Fastify app and never touches the environment; `serve.ts` is the only reader.
+In-process tests use `app.inject()` and never listen at all, and if you do want
+a socket, pass what you want to `app.listen()` yourself.
 
 ## Waiting for it
 
