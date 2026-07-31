@@ -163,7 +163,11 @@ export default defineConfig({
 });
 ```
 
-and point the default command at only one of them:
+The names are only convention: what actually separates the two is whether a
+test needs something running outside the process — not how fine-grained it is,
+and not how fast it runs.
+
+Then point the default command at only one of them:
 
 ```json
 "test":     "vitest run --project unit",
