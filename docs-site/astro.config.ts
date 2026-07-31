@@ -72,10 +72,10 @@ export default defineConfig({
         { label: "Quickstart", slug: "quickstart" },
         { label: "Scenarios", slug: "scenarios" },
         { label: "Development", slug: "development" },
-        // The consumers. meadow is only ever used from these two, so the exits
-        // to their docs belong in the nav rather than buried in prose.
+        // The consumer. BrowserHive is the only repository that uses meadow,
+        // and its "Running the tests" page is the worked example the Quickstart
+        // points at — so the exit belongs in the nav rather than buried in prose.
         { label: "BrowserHive Docs ↗", link: "https://uraitakahito.github.io/browserhive/" },
-        { label: "waggle Docs ↗", link: "https://uraitakahito.github.io/waggle/" },
       ],
     }),
   ],

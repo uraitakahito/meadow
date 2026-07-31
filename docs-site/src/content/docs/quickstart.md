@@ -98,3 +98,80 @@ it("retries a flaky origin until it succeeds", async () => {
 
 See [Scenarios](/scenarios/) for what each route reproduces, and why `key`
 matters.
+
+## Keeping these tests out of the default run
+
+The test above fails the moment meadow is not running. **Do not leave that kind
+of test in the default test command.** If you do, every change to anything —
+including code that has nothing to do with meadow — starts requiring a
+container.
+
+Split them into their own test-runner project instead. Consumers use two:
+
+```ts
+// vitest.config.mts
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        test: {
+          name: "unit",
+          include: ["test/**/*.test.ts"],
+          exclude: ["test/e2e/**"], // everything that needs meadow lives here
+        },
+      },
+      {
+        test: {
+          name: "e2e",
+          include: ["test/e2e/**/*.e2e.test.ts"],
+          globalSetup: ["./test/e2e/global-setup.ts"],
+        },
+      },
+    ],
+  },
+});
+```
+
+and point the default command at only one of them:
+
+```json
+"test":     "vitest run --project unit",
+"test:e2e": "vitest run --project e2e"
+```
+
+Now `npm test` does not *skip* the meadow tests — it never collects them. There
+is no "0 skipped" line to misread, and no container to remember.
+
+### Fail, do not skip
+
+When the `e2e` project **is** selected and meadow is not up, fail:
+
+```ts
+// test/e2e/global-setup.ts
+const READY_ATTEMPTS = 45;
+
+let reachable = false;
+for (let i = 0; i < READY_ATTEMPTS && !reachable; i++) {
+  reachable = await fetch(`${origin}/health`)
+    .then((r) => r.ok)
+    .catch(() => false);
+  if (!reachable) await new Promise((r) => setTimeout(r, 1000));
+}
+if (!reachable) {
+  throw new Error(`meadow not reachable at ${origin} after 45s — start it first`);
+}
+```
+
+`it.skipIf()` is easier and worse. **A skipped test is not a passing test**, but
+it reports as green — so a CI job that forgets to start meadow keeps reporting
+success while verifying nothing. Do the separating when the suite is *chosen*,
+and once chosen, always produce a result.
+
+### CI
+
+Run `unit` on every pull request and leave the meadow suite on manual dispatch.
+There is no reason for day-to-day CI to start a container.
+
+BrowserHive's [Running the tests](https://uraitakahito.github.io/browserhive/running-tests/)
+is this arrangement written out in full, including what each command reports and
+what to do when an E2E test fails.

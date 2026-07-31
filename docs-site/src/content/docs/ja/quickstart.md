@@ -99,3 +99,80 @@ it("失敗するオリジンに対してリトライし、最終的に成功す�
 
 各ルートが何を再現するのか、`key` がなぜ重要なのかは
 [シナリオ](/scenarios/)にあります。
+
+## 既定の実行から外す
+
+前節のテストは、meadow が動いていなければ即座に失敗します。
+**この種のテストを既定のテストコマンドに残さないでください。**
+残すと、meadow と何の関係もないコードを触ったときまで、
+コンテナの起動を強いられることになります。
+
+テストランナーのプロジェクトを分けます。利用側は 2 つ持っています。
+
+```ts
+// vitest.config.mts
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        test: {
+          name: "unit",
+          include: ["test/**/*.test.ts"],
+          exclude: ["test/e2e/**"], // meadow を要求するものはここに集める
+        },
+      },
+      {
+        test: {
+          name: "e2e",
+          include: ["test/e2e/**/*.e2e.test.ts"],
+          globalSetup: ["./test/e2e/global-setup.ts"],
+        },
+      },
+    ],
+  },
+});
+```
+
+そのうえで、既定のコマンドは片方だけを指すようにします。
+
+```json
+"test":     "vitest run --project unit",
+"test:e2e": "vitest run --project e2e"
+```
+
+これで `npm test` は meadow 関連を*スキップする*のではなく、**そもそも収集しません**。
+「0 skipped」を読み違える余地も、コンテナを起動し忘れる余地もありません。
+
+### スキップではなく、失敗させる
+
+`e2e` を**選んだ**のに meadow が動いていない場合は、失敗させます。
+
+```ts
+// test/e2e/global-setup.ts
+const READY_ATTEMPTS = 45;
+
+let reachable = false;
+for (let i = 0; i < READY_ATTEMPTS && !reachable; i++) {
+  reachable = await fetch(`${origin}/health`)
+    .then((r) => r.ok)
+    .catch(() => false);
+  if (!reachable) await new Promise((r) => setTimeout(r, 1000));
+}
+if (!reachable) {
+  throw new Error(`meadow not reachable at ${origin} after 45s — start it first`);
+}
+```
+
+`it.skipIf()` のほうが手軽ですが、そのぶん質が落ちます。
+**スキップしたテストは「通ったテスト」ではありません。** それでもレポートは緑です。
+meadow の起動を忘れた CI が、何も検証しないまま成功を報告し続けます。
+分離は**選ぶ**段階で行い、選んだ後は必ず結果を出します。
+
+### CI
+
+プルリクエストごとに回すのは `unit` だけにして、meadow を使うスイートは
+手動起動にしておきます。日常の CI がコンテナを起動する理由はありません。
+
+BrowserHive の[テストの実行](https://uraitakahito.github.io/browserhive/ja/running-tests/)に、
+この構成が余さず書かれています ― 各コマンドが何を出力するか、
+E2E が落ちたときに何をするか、まで含めて。
