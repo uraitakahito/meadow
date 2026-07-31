@@ -19,32 +19,32 @@ describe("static pages", () => {
     expect(res.json()).toEqual({ ok: true });
   });
 
-  it("/ok returns 200 HTML", async () => {
-    const res = await app.inject("/ok");
+  it("/plain-html returns 200 HTML", async () => {
+    const res = await app.inject("/plain-html");
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
     expect(res.body).toContain("<h1>ok</h1>");
   });
 
-  it("/redirect-page ships a client-side location.replace", async () => {
-    const res = await app.inject("/redirect-page");
+  it("/client-side-redirect ships a client-side location.replace", async () => {
+    const res = await app.inject("/client-side-redirect");
     expect(res.statusCode).toBe(200);
-    expect(res.body).toContain('location.replace("/landed")');
+    expect(res.body).toContain('location.replace("/redirect-target")');
   });
 
-  it("/lazy has a below-the-fold lazy image", async () => {
-    const res = await app.inject("/lazy");
+  it("/lazy-images has a below-the-fold lazy image", async () => {
+    const res = await app.inject("/lazy-images");
     expect(res.body).toContain('loading="lazy"');
     expect(res.body).toContain("/assets/hero.svg");
   });
 
-  it("/banner has a fixed cookie overlay", async () => {
-    const res = await app.inject("/banner");
+  it("/cookie-banner has a fixed cookie overlay", async () => {
+    const res = await app.inject("/cookie-banner");
     expect(res.body).toContain("cookie-banner");
   });
 
-  it("/set-cookie sets a cookie header", async () => {
-    const res = await app.inject("/set-cookie");
+  it("/cookie-and-storage sets a cookie header", async () => {
+    const res = await app.inject("/cookie-and-storage");
     expect(res.headers["set-cookie"]).toBeDefined();
     expect(res.body).toContain("localStorage.setItem");
   });
@@ -52,77 +52,77 @@ describe("static pages", () => {
 
 describe("controllable responses", () => {
   it("/slow waits the requested time then responds", async () => {
-    const res = await app.inject("/slow?ms=5");
+    const res = await app.inject("/slow-response?delayMs=5");
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain("slept 5ms");
   });
 
-  it("/status/:code returns that status", async () => {
-    expect((await app.inject("/status/503")).statusCode).toBe(503);
-    expect((await app.inject("/status/404")).statusCode).toBe(404);
-    expect((await app.inject("/status/204")).statusCode).toBe(204);
+  it("/http-status/:code returns that status", async () => {
+    expect((await app.inject("/http-status/503")).statusCode).toBe(503);
+    expect((await app.inject("/http-status/404")).statusCode).toBe(404);
+    expect((await app.inject("/http-status/204")).statusCode).toBe(204);
   });
 
-  it("/redirect/:n chains 302s down to /landed", async () => {
-    const two = await app.inject("/redirect/2");
+  it("/server-redirect-chain/:n chains 302s down to /landed", async () => {
+    const two = await app.inject("/server-redirect-chain/2");
     expect(two.statusCode).toBe(302);
-    expect(two.headers.location).toBe("/redirect/1");
+    expect(two.headers.location).toBe("/server-redirect-chain/1");
 
-    const zero = await app.inject("/redirect/0");
+    const zero = await app.inject("/server-redirect-chain/0");
     expect(zero.statusCode).toBe(302);
-    expect(zero.headers.location).toBe("/landed");
+    expect(zero.headers.location).toBe("/redirect-target");
   });
 
   it("/big returns a body of the requested size", async () => {
-    const res = await app.inject("/big?bytes=100");
+    const res = await app.inject("/large-body?bytes=100");
     expect(res.rawPayload.length).toBe(100);
   });
 
-  it("/drip trickles the requested number of bytes", async () => {
-    const res = await app.inject("/drip?bytes=50&ms=0");
+  it("/slow-body trickles the requested number of bytes", async () => {
+    const res = await app.inject("/slow-body?bytes=50&overMs=0");
     expect(res.statusCode).toBe(200);
     expect(res.rawPayload.length).toBe(50);
   });
 });
 
-describe("stateful flaky", () => {
+describe("stateful fails-then-succeeds", () => {
   it("fails `fail` times then succeeds, per key", async () => {
-    const url = "/flaky?fail=2&key=t1";
+    const url = "/fails-then-succeeds?failTimes=2&key=t1";
     expect((await app.inject(url)).statusCode).toBe(503);
     expect((await app.inject(url)).statusCode).toBe(503);
     expect((await app.inject(url)).statusCode).toBe(200);
   });
 
   it("isolates counters between keys", async () => {
-    expect((await app.inject("/flaky?fail=1&key=a")).statusCode).toBe(503);
+    expect((await app.inject("/fails-then-succeeds?failTimes=1&key=a")).statusCode).toBe(503);
     // Different key starts fresh, so it is still on its first (failing) request.
-    expect((await app.inject("/flaky?fail=1&key=b")).statusCode).toBe(503);
+    expect((await app.inject("/fails-then-succeeds?failTimes=1&key=b")).statusCode).toBe(503);
     // `a` has now had its one failure and succeeds.
-    expect((await app.inject("/flaky?fail=1&key=a")).statusCode).toBe(200);
+    expect((await app.inject("/fails-then-succeeds?failTimes=1&key=a")).statusCode).toBe(200);
   });
 });
 
 describe("introspection", () => {
-  it("/__hits counts requests per URL", async () => {
-    await app.inject("/ok");
-    await app.inject("/ok");
-    await app.inject("/landed");
-    const hits = (await app.inject("/__hits")).json<Record<string, number>>();
-    expect(hits["/ok"]).toBe(2);
-    expect(hits["/landed"]).toBe(1);
+  it("/__request-counts counts requests per URL", async () => {
+    await app.inject("/plain-html");
+    await app.inject("/plain-html");
+    await app.inject("/redirect-target");
+    const hits = (await app.inject("/__request-counts")).json<Record<string, number>>();
+    expect(hits["/plain-html"]).toBe(2);
+    expect(hits["/redirect-target"]).toBe(1);
   });
 
-  it("/__reset clears counters and flaky state", async () => {
-    await app.inject("/flaky?fail=1&key=r");
-    await app.inject("/ok");
+  it("/__reset clears counters and failure state", async () => {
+    await app.inject("/fails-then-succeeds?failTimes=1&key=r");
+    await app.inject("/plain-html");
     const reset = await app.inject({ method: "POST", url: "/__reset" });
     expect(reset.statusCode).toBe(200);
 
-    // Counters gone (only this /__hits request is counted now).
-    const hits = (await app.inject("/__hits")).json<Record<string, number>>();
-    expect(hits["/ok"]).toBeUndefined();
+    // Counters gone (only this /__request-counts request is counted now).
+    const hits = (await app.inject("/__request-counts")).json<Record<string, number>>();
+    expect(hits["/plain-html"]).toBeUndefined();
     // Flaky counter reset, so key=r fails again on its fresh first request.
-    expect((await app.inject("/flaky?fail=1&key=r")).statusCode).toBe(503);
+    expect((await app.inject("/fails-then-succeeds?failTimes=1&key=r")).statusCode).toBe(503);
   });
 });
 
