@@ -67,15 +67,22 @@ export default defineConfig({
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/uraitakahito/meadow" },
       ],
+      // Every entry carries a `ja` translation. Starlight localises pages but
+      // not navigation, so without these the Japanese docs are translated
+      // pages hanging off an English index.
       sidebar: [
-        { label: "Overview", slug: "index" },
-        { label: "Quickstart", slug: "quickstart" },
-        { label: "Scenarios", slug: "scenarios" },
-        { label: "Development", slug: "development" },
+        { label: "Overview", translations: { ja: "概要" }, slug: "index" },
+        { label: "Quickstart", translations: { ja: "クイックスタート" }, slug: "quickstart" },
+        { label: "Scenarios", translations: { ja: "シナリオ" }, slug: "scenarios" },
+        { label: "Development", translations: { ja: "開発" }, slug: "development" },
         // The consumer. BrowserHive is the only repository that uses meadow,
         // and its "Running the tests" page is the worked example the Quickstart
         // points at — so the exit belongs in the nav rather than buried in prose.
-        { label: "BrowserHive Docs ↗", link: "https://uraitakahito.github.io/browserhive/" },
+        {
+          label: "BrowserHive Docs ↗",
+          translations: { ja: "BrowserHive Docs ↗" },
+          link: "https://uraitakahito.github.io/browserhive/",
+        },
       ],
     }),
   ],
