@@ -1,5 +1,7 @@
 /node_modules/
 /dist/
+# scripts/generate-version.mjs が焼く build fingerprint。
+/src/generated/
 
 # TypeScript build info
 *.tsbuildinfo
