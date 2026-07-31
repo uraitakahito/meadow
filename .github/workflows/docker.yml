@@ -49,10 +49,10 @@ jobs:
             sleep 1
           done
           set -e
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ok)" = 200
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/status/503)" = 503
-          codes="$(for _ in 1 2 3; do curl -s -o /dev/null -w '%{http_code} ' 'http://localhost:8080/flaky?fail=2&key=ci'; done)"
-          echo "flaky codes: $codes"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/plain-html)" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/http-status/503)" = 503
+          codes="$(for _ in 1 2 3; do curl -s -o /dev/null -w '%{http_code} ' 'http://localhost:8080/fails-then-succeeds?failTimes=2&key=ci'; done)"
+          echo "fails-then-succeeds codes: $codes"
           test "$codes" = "503 503 200 "
 
       - name: Capture logs on failure
