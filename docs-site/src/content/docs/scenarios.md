@@ -8,7 +8,7 @@ the reason each one is there — the part a table of paths cannot carry.
 
 ## Use the typed helper, not the paths
 
-Hard-coding `/flaky?fail=2&key=x` in a consumer means a rename in meadow breaks
+Hard-coding `/fails-then-succeeds?failTimes=2&key=x` in a consumer means a rename in meadow breaks
 that consumer silently, months later, in a repo nobody is looking at. The
 `scenarios` export is the one place these URLs are written down:
 
@@ -20,20 +20,20 @@ Prefix with the fixture origin:
 ```ts
 import { scenarios } from "meadow";
 
-const url = `http://${meadowIp}:8080` + scenarios.flaky(2, "retry-budget");
+const url = `http://${meadowIp}:8080` + scenarios.failsThenSucceeds(2, "retry-budget");
 ```
 
 ## Static pages
 
-### `/ok` — the success baseline
+### `/plain-html` — the success baseline
 
 Plain 200 HTML, no scripts, no sub-resources. Every other scenario is only
-meaningful against a control that is known to work; when a test fails, `/ok`
+meaningful against a control that is known to work; when a test fails, `/plain-html`
 answers "is the pipeline broken, or is this scenario doing its job?".
 
-### `/redirect-page` → `/landed` — client-side navigation
+### `/client-side-redirect` → `/redirect-target` — client-side navigation
 
-Serves a page whose only content is `location.replace("/landed")`, running at
+Serves a page whose only content is `location.replace("/redirect-target")`, running at
 parse time.
 
 This destroys the JavaScript execution context **while the capture code is
@@ -45,7 +45,7 @@ route is what proves it works.
 A server-side 302 does *not* reproduce it — the browser follows the redirect
 before the page ever exists. It has to be the page navigating itself.
 
-### `/lazy` — deferred sub-resources
+### `/lazy-images` — deferred sub-resources
 
 3000px of filler, then two images below the fold, each deferred by a **different
 mechanism**:
@@ -62,7 +62,7 @@ Two mechanisms rather than one because they fail differently: native `lazy`
 responds to the viewport, the observer responds to layout. A behaviour that
 scrolls instantly to the bottom can satisfy one and miss the other.
 
-### `/banner` — a fixed overlay
+### `/cookie-banner` — a fixed overlay
 
 Content with a `position: fixed` bar pinned to the bottom, carrying a cookie
 notice and an Accept button that removes it.
@@ -71,7 +71,7 @@ Whatever a consumer does about overlays — remove them, ignore them, click
 through them — this is a page where one demonstrably exists, so the difference
 between "handled" and "not handled" is visible in a screenshot.
 
-### `/set-cookie` — state that outlives a page
+### `/cookie-and-storage` — state that outlives a page
 
 Sets `meadow=1` as an HttpOnly cookie **and** writes to `localStorage`.
 
@@ -82,15 +82,15 @@ and it shows up as *content*, silently, not as an error.
 
 ## Parameterised routes
 
-### `/slow?ms=` — page-load timeouts
+### `/slow-response?delayMs=` — page-load timeouts
 
-Waits `ms` before sending anything. **Defaults to 35000**, deliberately more
-than BrowserHive's 30-second page-load timeout, so `scenarios.slow()` with no
+Waits `delayMs` before sending anything. **Defaults to 35000**, deliberately more
+than BrowserHive's 30-second page-load timeout, so `scenarios.slowResponse()` with no
 argument is already a timeout.
 
 Note where the delay is: before the *response*, not during it. The socket is
 open and nothing arrives — the case that hangs a naive fetch forever. For a
-response that starts and then stalls, use `/drip`.
+response that starts and then stalls, use `/slow-body`.
 
 ### `/block-main-thread?holdMs=&repeatForMs=` — a page that stops responding
 
@@ -98,7 +98,7 @@ Holds the page's main thread for `holdMs` at a time, repeating for
 `repeatForMs`. While it is held, nothing else in the page runs: `setTimeout`
 callbacks cannot fire and an injected `page.evaluate` cannot even start.
 
-**This is not the same as a slow network.** `/slow` delays the *response*; the
+**This is not the same as a slow network.** `/slow-response` delays the *response*; the
 page it eventually serves works normally. Here the response is instant and the
 page is the thing that stops working. A consumer that only ever tested against
 slow responses has never exercised the timeouts that guard its in-page
@@ -118,45 +118,45 @@ budgets around in-page work (5s). Same page, entirely different test.
 `repeatForMs` is capped at 30000. A page that holds its thread forever outlives
 the capture that asked for it and wedges whatever runs next in the same tab.
 
-### `/status/:code` — the non-2xx branch
+### `/http-status/:code` — the non-2xx branch
 
-Returns exactly the status asked for, with a body. Any code: `/status/404`,
-`/status/503`, `/status/418`.
+Returns exactly the status asked for, with a body. Any code: `/http-status/404`,
+`/http-status/503`, `/http-status/418`.
 
 The body matters. A pipeline that only checks the status treats these
 identically, but one that captures the response has to decide whether an error
 page is an artifact worth keeping — and that decision needs a real body to act
 on.
 
-### `/redirect/:n` — redirect chains
+### `/server-redirect-chain/:hops` — redirect chains
 
-A 302 chain of length `n`, ending at `/landed`. `/redirect/3` is four hops:
-`3 → 2 → 1 → 0 → /landed`.
+A 302 chain of length `n`, ending at `/redirect-target`. `/redirect/3` is four hops:
+`3 → 2 → 1 → 0 → /redirect-target`.
 
 Chain length is the parameter because redirect handling usually breaks at a
 limit rather than at one hop. Browsers cap chains around 20; a chain longer
 than the cap is how you test what happens at the boundary rather than in the
 middle.
 
-### `/big?bytes=` — response-size caps
+### `/large-body?bytes=` — response-size caps
 
 A body of exactly `bytes` bytes, sent at once. Defaults to 1 MiB.
 
 An archiver has to cap what it stores or a single video swallows the disk. This
 route makes the cap testable from both sides: one byte under, one byte over.
 
-### `/drip?bytes=&ms=` — slow bodies
+### `/slow-body?bytes=&overMs=` — slow bodies
 
-`bytes` bytes trickled over roughly `ms`, in ten chunks.
+`bytes` bytes trickled over roughly `overMs`, in ten chunks.
 
-Different failure from `/slow`: here the response **starts immediately** and
+Different failure from `/slow-response`: here the response **starts immediately** and
 then arrives slowly. Headers are in, the status is 200, and a timeout measured
 from request-start behaves differently from one measured between chunks. Code
-that treats "response received" as "done" passes `/slow` and hangs on `/drip`.
+that treats "response received" as "done" passes `/slow-response` and hangs on `/slow-body`.
 
-### `/flaky?fail=&key=` — deterministic retries
+### `/fails-then-succeeds?failTimes=&key=` — deterministic retries
 
-Returns 503 for the first `fail` requests carrying `key`, then 200 for every
+Returns 503 for the first `failTimes` requests carrying `key`, then 200 for every
 request after. Defaults to `fail=2`, `key=default`.
 
 **`key` is what makes retry tests trustworthy.** The failure counter is
@@ -168,13 +168,13 @@ classic flaky test, testing flakiness.
 Pick a key per assertion, not per suite:
 
 ```ts
-scenarios.flaky(2, "retry-budget-exhausted")
-scenarios.flaky(1, "single-retry-then-success")
+scenarios.failsThenSucceeds(2, "retry-budget-exhausted")
+scenarios.failsThenSucceeds(1, "single-retry-then-success")
 ```
 
 ### `/assets/*` — static sub-resources
 
-Serves `site/` (`hero.svg`, `below.svg`). Referenced by `/lazy`, and available
+Serves `site/` (`hero.svg`, `below.svg`). Referenced by `/lazy-images`, and available
 directly when a test needs a sub-resource whose bytes it can predict.
 
 ## Introspection
@@ -183,16 +183,16 @@ Two test-only endpoints. They exist because *how many times* something was
 requested is often the actual assertion — a retry test that only checks the
 final status cannot tell one retry from five.
 
-### `GET /__hits`
+### `GET /__request-counts`
 
 Request count per URL, as a plain object:
 
 ```json
-{ "/ok": 1, "/flaky?fail=2&key=retry-budget": 3 }
+{ "/plain-html": 1, "/fails-then-succeeds?failTimes=2&key=retry-budget": 3 }
 ```
 
-Keyed by **full URL including the query string**, so `/flaky?fail=2&key=a` and
-`/flaky?fail=2&key=b` count separately — the same isolation `key` gives you for
+Keyed by **full URL including the query string**, so `/fails-then-succeeds?failTimes=2&key=a` and
+`/fails-then-succeeds?failTimes=2&key=b` count separately — the same isolation `key` gives you for
 the failure counter.
 
 ### `POST /__reset`

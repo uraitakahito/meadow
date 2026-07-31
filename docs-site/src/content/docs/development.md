@@ -50,8 +50,9 @@ exists.
 ### What makes a good scenario
 
 Each route should reproduce **one** failure mode, and reproduce it
-**deterministically**. `/flaky` is the model: `fail` says how many times to
-fail, `key` isolates the counter so two tests cannot interfere. A scenario that
+**deterministically**. `/fails-then-succeeds` is the model — its name
+states the whole behaviour, `failTimes` says how many times, and `key`
+isolates the counter so two tests cannot interfere. A scenario that
 behaves differently depending on what ran before it is worse than no scenario —
 it makes the consumer's test flaky while looking like it is testing flakiness.
 
