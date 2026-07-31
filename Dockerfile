@@ -9,6 +9,17 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
+COPY scripts ./scripts
+
+# The fingerprint /__version reports. The build context has no .git
+# (.dockerignore), so generate-version.mjs reads these rather than asking git.
+# Left unset the image reports version=unknown revision=dev — itself a useful
+# signal: it was baked without recording what it was baked from.
+ARG GIT_TAG=
+ENV GIT_TAG=$GIT_TAG
+ARG GIT_REV=dev
+ENV GIT_REV=$GIT_REV
+
 RUN npm run build
 
 FROM node:24-bookworm-slim

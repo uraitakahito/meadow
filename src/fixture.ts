@@ -4,6 +4,8 @@ import { Readable } from "node:stream";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 
+import { BUILD_INFO } from "./generated/version.js";
+
 const PLAIN_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>ok</title></head><body><h1>ok</h1></body></html>`;
 const REDIRECT_TARGET_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>landed</title></head><body><h1>landed</h1></body></html>`;
 
@@ -192,6 +194,13 @@ export function buildFixture(): FastifyInstance {
     failureCounts.clear();
     return { ok: true };
   });
+
+  // Which build is answering. Deliberately not folded into /health: that
+  // question is "are you up", asked in a tight loop by readiness waits, and it
+  // should keep answering only that. This one is asked when a test fails for
+  // no visible reason and you start wondering whether the container in front
+  // of you was ever rebuilt.
+  app.get("/__version", () => BUILD_INFO);
 
   return app;
 }

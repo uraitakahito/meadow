@@ -148,6 +148,27 @@ describe("block-main-thread", () => {
   });
 });
 
+describe("__version", () => {
+  it("reports the three fields it exists to report", async () => {
+    const res = await app.inject("/__version");
+    expect(res.statusCode).toBe(200);
+    // The values move with every build, so only the shape is pinned here.
+    // Asserting the contents would turn this into a test of
+    // generate-version.mjs, which is a different thing entirely.
+    const body = res.json<Record<string, unknown>>();
+    expect(Object.keys(body).sort()).toEqual(["buildTime", "revision", "version"]);
+    for (const [field, value] of Object.entries(body)) {
+      expect(typeof value, field).toBe("string");
+    }
+  });
+
+  it("leaves /health answering only whether it is up", async () => {
+    // The split is the point of having two routes. Readiness waits poll
+    // /health in a tight loop and should keep getting one small answer.
+    expect((await app.inject("/health")).json()).toEqual({ ok: true });
+  });
+});
+
 describe("static assets", () => {
   it("serves /assets/hero.svg", async () => {
     const res = await app.inject("/assets/hero.svg");

@@ -14,10 +14,15 @@
     "site"
   ],
   "scripts": {
+    "generate:version": "node scripts/generate-version.mjs",
+    "prebuild": "npm run generate:version",
     "build": "tsc -p tsconfig.build.json",
+    "pretypecheck": "npm run generate:version",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run generate:version",
     "test": "vitest run",
     "test:watch": "vitest",
+    "prelint": "npm run generate:version",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "start": "node dist/serve.js",
