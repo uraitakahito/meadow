@@ -17,7 +17,7 @@ import { buildFixture, scenarios } from "meadow";
 
 const app = buildFixture();
 
-const res = await app.inject(scenarios.status(503));
+const res = await app.inject(scenarios.httpStatus(503));
 // res.statusCode === 503
 
 await app.close();
@@ -28,8 +28,8 @@ Build one app per test file and close it in teardown. `buildFixture()` is cheap
 
 :::caution[A library instance cannot serve a browser]
 `app.inject()` never touches the network stack, so Chrome cannot reach it. If a
-scenario is about what the *browser* does — `/lazy`, `/redirect-page`,
-`/banner` — you need the container.
+scenario is about what the *browser* does — `/lazy-images`, `/client-side-redirect`,
+`/cookie-banner` — you need the container.
 :::
 
 ## As a container
@@ -81,7 +81,7 @@ import { scenarios } from "meadow";
 const origin = `http://${meadowIp}:8080`;
 
 beforeEach(async () => {
-  // Both hit counts and flaky state are per-process — clear them per test,
+  // Both request counts and failure counters are per-process — clear them per test,
   // not per suite.
   await fetch(`${origin}/__reset`, { method: "POST" });
 });
@@ -89,10 +89,10 @@ beforeEach(async () => {
 it("retries a flaky origin until it succeeds", async () => {
   // A key unique to this assertion, so a parallel test cannot consume the
   // same failure budget.
-  await capture(origin + scenarios.flaky(2, "retry-until-success"));
+  await capture(origin + scenarios.failsThenSucceeds(2, "retry-until-success"));
 
-  const hits = await (await fetch(`${origin}/__hits`)).json();
-  expect(hits[scenarios.flaky(2, "retry-until-success")]).toBe(3);
+  const hits = await (await fetch(`${origin}/__request-counts`)).json();
+  expect(hits[scenarios.failsThenSucceeds(2, "retry-until-success")]).toBe(3);
 });
 ```
 

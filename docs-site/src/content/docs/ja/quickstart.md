@@ -17,7 +17,7 @@ import { buildFixture, scenarios } from "meadow";
 
 const app = buildFixture();
 
-const res = await app.inject(scenarios.status(503));
+const res = await app.inject(scenarios.httpStatus(503));
 // res.statusCode === 503
 
 await app.close();
@@ -29,7 +29,7 @@ await app.close();
 
 :::caution[ライブラリ形態はブラウザに応答できません]
 `app.inject()` はネットワークスタックに一切触れないので、**Chrome からは到達できません**。
-`/lazy`・`/redirect-page`・`/banner` のように
+`/lazy-images`・`/client-side-redirect`・`/cookie-banner` のように
 **ブラウザ自身の挙動**が主題のシナリオには、コンテナが必要です。
 :::
 
@@ -82,7 +82,7 @@ import { scenarios } from "meadow";
 const origin = `http://${meadowIp}:8080`;
 
 beforeEach(async () => {
-  // ヒット数も flaky の状態もプロセス内に残る。スイートごとではなく
+  // リクエスト件数も失敗カウンタもプロセス内に残る。スイートごとではなく
   // テストごとにクリアする。
   await fetch(`${origin}/__reset`, { method: "POST" });
 });
@@ -90,10 +90,10 @@ beforeEach(async () => {
 it("失敗するオリジンに対してリトライし、最終的に成功する", async () => {
   // このアサーション専用の key。並行するテストが同じ失敗予算を
   // 食い合わないようにする。
-  await capture(origin + scenarios.flaky(2, "retry-until-success"));
+  await capture(origin + scenarios.failsThenSucceeds(2, "retry-until-success"));
 
-  const hits = await (await fetch(`${origin}/__hits`)).json();
-  expect(hits[scenarios.flaky(2, "retry-until-success")]).toBe(3);
+  const hits = await (await fetch(`${origin}/__request-counts`)).json();
+  expect(hits[scenarios.failsThenSucceeds(2, "retry-until-success")]).toBe(3);
 });
 ```
 

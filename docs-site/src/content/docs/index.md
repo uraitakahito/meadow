@@ -46,7 +46,7 @@ an ordinary HTTP server that really sends the bytes, really delays them, really
 returns the status code. That is deliberate — stubbing at the network layer
 would skip Chrome's own behaviour, which is exactly what these tests are about.
 
-It is also **test-only**. `/__hits` and `/__reset` expose and mutate in-memory
+It is also **test-only**. `/__request-counts` and `/__reset` expose and mutate in-memory
 state with no authentication whatsoever. Never run meadow where it can be
 reached from outside the test network.
 
