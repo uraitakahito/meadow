@@ -85,13 +85,6 @@ services:
 npm run build && MEADOW_PORT=9090 npm start
 ```
 
-:::caution[Changing the port takes two edits, not one]
-The `Dockerfile` carries `EXPOSE 8080`, and the consumers' URLs carry `:8080`
-too. Setting `MEADOW_PORT` alone moves the listener while everything pointing at
-it keeps saying 8080 — the container comes up healthy and nothing can reach it.
-Change the published port and the consumer's origin in the same breath.
-:::
-
 **As a library, these are ignored.** `buildFixture()` returns an unstarted
 Fastify app and never touches the environment; `serve.ts` is the only reader.
 In-process tests use `app.inject()` and never listen at all, and if you do want
