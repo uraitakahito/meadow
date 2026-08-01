@@ -19,13 +19,32 @@ const ROOT = resolve(process.cwd(), "..");
 /**
  * The current text between `// #region <name>` and `// #endregion`.
  *
- * Throws when the region is gone, which fails the astro build — that is the
- * point. A renamed or deleted region has to break the docs loudly rather than
- * leave a page showing code that no longer exists.
+ * Throws when the region is gone — but whether that stops the build depends on
+ * the page's extension, which is not obvious and was measured rather than
+ * assumed (Starlight 0.41.4 / Astro 7.1.4):
+ *
+ *   .mdx — the throw surfaces through @astrojs/mdx's vite plugin and the
+ *          build fails, exit 1.
+ *   .md  — Starlight's docs loader catches it, logs
+ *          `[ERROR] [starlight-docs-loader] Error rendering …`, and the build
+ *          finishes with exit 0 and "Complete!".
+ *
+ * Every page in meadow is .md, so here the build is not a guard at all. The
+ * one that holds the line is scripts/check-doc-refs.mjs, which exits non-zero
+ * for both kinds. `npm run site:check` runs both; the workflows run
+ * `site:check`, never `site:build` alone.
+ *
+ * The name must run to the end of its line. `\b` is not enough: a word
+ * boundary sits between `s` and `-`, so a region named `scenarios` would also
+ * match a marker reading `#region scenarios-v2` and quietly serve the wrong
+ * snippet — the exact drift this mechanism exists to prevent.
  */
 export function sourceRegion(file: string, region: string): string {
   const text = readFileSync(resolve(ROOT, file), "utf8");
-  const re = new RegExp(String.raw`//\s*#region\s+${region}\b([\s\S]*?)//\s*#endregion`);
+  const re = new RegExp(
+    String.raw`//\s*#region\s+${region}[ \t]*\r?$([\s\S]*?)//\s*#endregion`,
+    "m",
+  );
   const m = re.exec(text);
   if (!m) throw new Error(`region '${region}' not found in ${file}`);
   return (m[1] ?? "").replace(/^\n/, "").replace(/\s+$/, "");
