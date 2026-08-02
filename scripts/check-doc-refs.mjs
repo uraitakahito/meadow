@@ -1,14 +1,24 @@
 /**
  * Verify that the Starlight docs-site stays in sync with the TypeScript source.
  *
- * `astro build` already throws on a missing `// #region` (see
- * docs-site/src/lib/extract.ts), so the build is itself a drift guard for
- * injected snippets. This script catches the reference kinds the build does NOT
- * see — a doc can build green while silently pointing at code that was renamed
- * or removed:
+ * This script is the whole guard here, not a supplement to one. The extractor
+ * in docs-site/src/lib/extract.ts does throw on a missing `// #region`, but
+ * whether that stops the build depends on the page's extension: on .mdx the
+ * throw surfaces through vite and the build fails; on .md — which is every
+ * page in meadow — Starlight's docs loader catches it, logs
+ * `[ERROR] [starlight-docs-loader] Error rendering …`, and finishes with
+ * exit 0. So `astro build` alone goes green over a doc pointing at code that
+ * no longer exists. Measured, not assumed.
+ *
+ * What is checked here:
  *
  *   1. ```ts file="src/…#region"   → the file exists AND the region marker is present
  *   2. `src/….ts` code-span paths   → the referenced file still exists on disk
+ *
+ * Region names are compared exactly (a Set of `#region <name>` markers), which
+ * also closes a gap the extractor used to have: it matched names with `\b`, so
+ * asking for `scenarios` would happily match a marker reading `#region
+ * scenarios-v2` and serve the wrong snippet.
  *
  * BrowserHive's version of this script also validates `/terminology/#g-<Term>`
  * links against `@glossary` tags. meadow has no glossary page, so that check

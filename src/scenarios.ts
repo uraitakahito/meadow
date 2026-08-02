@@ -14,6 +14,11 @@ export const scenarios = {
   /** Plain 200 HTML, no script and no sub-resources — the success baseline. */
   plainHtml: "/plain-html",
   /**
+   * Revalidates on every visit (`no-cache` + `ETag`), so a repeat navigation
+   * gets a bodyless `304`. The only route here that can produce one.
+   */
+  cacheable: "/cacheable",
+  /**
    * DOMContentLoaded runs `location.replace(redirectTarget)`.
    *
    * Destroys the JavaScript execution context mid-capture. A server-side 302

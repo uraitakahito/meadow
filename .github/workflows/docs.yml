@@ -49,8 +49,13 @@ jobs:
       - name: Install docs-site dependencies
         run: npm ci --prefix docs-site
 
-      - name: Build Astro site
-        run: npm run site:build
+      # site:check rather than site:build: on .md pages — which is all of them
+      # here — `astro build` goes green over a doc whose `// #region` snippet
+      # failed to inject, because Starlight's loader catches the extractor's
+      # throw and still exits 0. Without the check, that page publishes. The
+      # check costs seconds.
+      - name: Build and verify
+        run: npm run site:check
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
