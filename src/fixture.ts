@@ -120,6 +120,55 @@ async function* slowBody(bytes: number, overMs: number): AsyncGenerator<Buffer> 
  * Same core in two shapes: import it for in-process tests (via `app.inject`)
  * or run it in a container (`serve.ts`) so a worker's Chrome reaches it by IP.
  */
+/**
+ * One request as it arrived, for `/__requests`.
+ *
+ * A bounded set of headers, not all of them. Recording everything makes the
+ * memory cost of a long-running dev container unpredictable, and an endpoint
+ * that shows anything does not tell a reader what is worth looking at. When
+ * something else turns out to be needed, adding it leaves a test explaining
+ * why.
+ */
+export interface RecordedRequest {
+  url: string;
+  method: string;
+  /**
+   * The header that separates "the browser revalidated" from "the browser
+   * fetched again" — and the reason this endpoint exists at all.
+   */
+  ifNoneMatch?: string;
+  /** The same question for resources served without an `ETag`. */
+  ifModifiedSince?: string;
+  cacheControl?: string;
+  acceptLanguage?: string;
+}
+
+/**
+ * What `/__requests` returns.
+ *
+ * Deliberately NOT a way to count requests — use `/__request-counts` for that.
+ * This log is capped, so counting it is right until the cap is reached and
+ * quietly wrong afterwards. The two endpoints make different promises: counts
+ * are exact and unbounded, this is the most recent `REQUEST_LOG_LIMIT`.
+ */
+export interface RequestLog {
+  /** Arrival order. "The first was unconditional, the second was not" needs it. */
+  requests: RecordedRequest[];
+  /** True once the cap has dropped something. The log is no longer everything. */
+  truncated: boolean;
+}
+
+/** How many requests `/__requests` keeps before dropping the oldest. */
+export const REQUEST_LOG_LIMIT = 1000;
+
+/** Headers worth keeping, and the field each lands in. */
+const RECORDED_HEADERS = [
+  ["if-none-match", "ifNoneMatch"],
+  ["if-modified-since", "ifModifiedSince"],
+  ["cache-control", "cacheControl"],
+  ["accept-language", "acceptLanguage"],
+] as const;
+
 export function buildFixture(): FastifyInstance {
   const app = Fastify();
 
@@ -127,9 +176,31 @@ export function buildFixture(): FastifyInstance {
   const hits = new Map<string, number>();
   // Per-key failure counter backing /fails-then-succeeds.
   const failureCounts = new Map<string, number>();
+  // The last REQUEST_LOG_LIMIT requests, with headers (/__requests).
+  const requests: RecordedRequest[] = [];
+  let truncated = false;
 
   app.addHook("onRequest", (request, _reply, done) => {
     hits.set(request.url, (hits.get(request.url) ?? 0) + 1);
+
+    // Introspection endpoints stay out of the log. Reading it must not change
+    // what it says, or answering "was the second request conditional?" starts
+    // with subtracting the reads.
+    //
+    // The counter above deliberately keeps counting them: it has always done
+    // so, and tests are written against that.
+    if (!request.url.startsWith("/__")) {
+      if (requests.length >= REQUEST_LOG_LIMIT) {
+        requests.shift();
+        truncated = true;
+      }
+      const recorded: RecordedRequest = { url: request.url, method: request.method };
+      for (const [header, field] of RECORDED_HEADERS) {
+        const value = request.headers[header];
+        if (typeof value === "string") recorded[field] = value;
+      }
+      requests.push(recorded);
+    }
     done();
   });
 
@@ -215,9 +286,12 @@ export function buildFixture(): FastifyInstance {
 
   // Test-only introspection: read counters, reset all in-memory state.
   app.get("/__request-counts", () => Object.fromEntries(hits));
+  app.get("/__requests", (): RequestLog => ({ requests, truncated }));
   app.post("/__reset", () => {
     hits.clear();
     failureCounts.clear();
+    requests.length = 0;
+    truncated = false;
     return { ok: true };
   });
 
