@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { buildFixture } from "../src/fixture.js";
+import { buildFixture, REQUEST_LOG_LIMIT, type RequestLog } from "../src/fixture.js";
 
 let app: ReturnType<typeof buildFixture>;
 
@@ -110,6 +110,82 @@ describe("introspection", () => {
     const hits = (await app.inject("/__request-counts")).json<Record<string, number>>();
     expect(hits["/plain-html"]).toBe(2);
     expect(hits["/redirect-target"]).toBe(1);
+  });
+
+  it("/__requests records whether a request was conditional", async () => {
+    // The whole reason this exists. /__request-counts can say a URL was asked
+    // for twice; it cannot say the second ask carried If-None-Match, which is
+    // the only thing that distinguishes "the browser revalidated" from "the
+    // browser fetched again".
+    const first = await app.inject("/cacheable");
+    const etag = first.headers.etag!;
+    await app.inject({ url: "/cacheable", headers: { "if-none-match": etag } });
+
+    const log = (await app.inject("/__requests")).json<RequestLog>();
+
+    // Arrival order matters as much as the contents: the statement being made
+    // is "the first was unconditional and the second was not".
+    expect(log.requests).toHaveLength(2);
+    expect(log.requests[0]?.url).toBe("/cacheable");
+    expect(log.requests[0]?.ifNoneMatch).toBeUndefined();
+    expect(log.requests[1]?.ifNoneMatch).toBe(etag);
+    expect(log.truncated).toBe(false);
+  });
+
+  it("/__requests keeps the headers that explain caching, and no others", async () => {
+    await app.inject({
+      url: "/plain-html",
+      headers: {
+        "accept-language": "ja-JP,ja;q=0.9",
+        "cache-control": "no-cache",
+        "if-modified-since": "Sun, 02 Aug 2026 00:00:00 GMT",
+        // Deliberately not recorded: a bounded set is what keeps the memory
+        // cost of a long-running dev container predictable.
+        cookie: "session=secret",
+      },
+    });
+
+    const log = (await app.inject("/__requests")).json<RequestLog>();
+    const only = log.requests[0];
+
+    expect(only?.acceptLanguage).toBe("ja-JP,ja;q=0.9");
+    expect(only?.cacheControl).toBe("no-cache");
+    expect(only?.ifModifiedSince).toBe("Sun, 02 Aug 2026 00:00:00 GMT");
+    expect(only?.method).toBe("GET");
+    expect(Object.keys(only ?? {})).not.toContain("cookie");
+  });
+
+  it("/__requests does not record the introspection endpoints themselves", async () => {
+    // Looking at the log must not change what the log says. Otherwise reading
+    // "was the second request conditional?" means first subtracting the reads.
+    await app.inject("/plain-html");
+    await app.inject("/__requests");
+    await app.inject("/__request-counts");
+
+    const log = (await app.inject("/__requests")).json<RequestLog>();
+    expect(log.requests.map((r) => r.url)).toEqual(["/plain-html"]);
+  });
+
+  it("/__requests drops the oldest once the limit is hit, and says it did", async () => {
+    // The limit exists so a dev container running for days cannot grow without
+    // bound. `truncated` exists so nobody counts a truncated log and believes
+    // the number.
+    for (let i = 0; i <= REQUEST_LOG_LIMIT; i++) {
+      await app.inject(`/plain-html?i=${String(i)}`);
+    }
+
+    const log = (await app.inject("/__requests")).json<RequestLog>();
+    expect(log.truncated).toBe(true);
+    expect(log.requests).toHaveLength(REQUEST_LOG_LIMIT);
+    expect(log.requests[0]?.url).not.toContain("i=0");
+  });
+
+  it("/__reset clears the request log as well", async () => {
+    await app.inject("/plain-html");
+    await app.inject({ method: "POST", url: "/__reset" });
+
+    const log = (await app.inject("/__requests")).json<RequestLog>();
+    expect(log).toEqual({ requests: [], truncated: false });
   });
 
   it("/__reset clears counters and failure state", async () => {
