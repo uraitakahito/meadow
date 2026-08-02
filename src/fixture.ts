@@ -7,6 +7,22 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { BUILD_INFO } from "./generated/version.js";
 
 const PLAIN_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>ok</title></head><body><h1>ok</h1></body></html>`;
+/**
+ * A page the browser will revalidate on every visit.
+ *
+ * `no-cache` means "store it, but ask before reusing it" — so the second and
+ * every later navigation sends `If-None-Match` and this route answers `304`,
+ * which carries no body. That is the state BrowserHive's cache modes exist to
+ * deal with, and nothing else in this fixture set can produce it: every other
+ * route sends no validator at all, so Chromium has nothing to revalidate
+ * against and never asks.
+ *
+ * Deliberately not `max-age`: a fresh entry is served from cache without
+ * contacting the origin at all, which reports as a 200 and proves nothing.
+ */
+const CACHEABLE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>cacheable</title></head><body><h1>cacheable</h1></body></html>`;
+const CACHEABLE_ETAG = '"meadow-cacheable-v1"';
+
 const REDIRECT_TARGET_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>landed</title></head><body><h1>landed</h1></body></html>`;
 
 // Client-side navigation on DOMContentLoaded. BrowserHive's runOnStableContext
@@ -126,6 +142,16 @@ export function buildFixture(): FastifyInstance {
   app.get("/health", () => ({ ok: true }));
 
   app.get("/plain-html", (_request, reply) => reply.type("text/html").send(PLAIN_HTML));
+  app.get("/cacheable", (request, reply) => {
+    reply.header("cache-control", "no-cache").header("etag", CACHEABLE_ETAG);
+    // 304 carries no body by definition — that is the whole point of the
+    // fixture, not an oversight.
+    if (request.headers["if-none-match"] === CACHEABLE_ETAG) {
+      return reply.code(304).send();
+    }
+    return reply.type("text/html").send(CACHEABLE_HTML);
+  });
+
   app.get("/redirect-target", (_request, reply) => reply.type("text/html").send(REDIRECT_TARGET_HTML));
   app.get("/client-side-redirect", (_request, reply) => reply.type("text/html").send(CLIENT_SIDE_REDIRECT_HTML));
   app.get("/lazy-images", (_request, reply) => reply.type("text/html").send(LAZY_IMAGES_HTML));
