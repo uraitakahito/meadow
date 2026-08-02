@@ -31,6 +31,46 @@ const CLIENT_SIDE_REDIRECT_HTML = `<!doctype html><html><head><meta charset="utf
 
 // Below-the-fold lazy image + IntersectionObserver-swapped data-src. Only a
 // browser that scrolls (autoScroll) will request /assets/hero.svg and /assets/below.svg.
+/**
+ * A page with no bottom.
+ *
+ * BrowserHive's `autoscroll` decides it has reached the end of a page by
+ * scrolling, waiting 250ms and checking whether `scrollY` moved. So the page
+ * has to have grown by then, every time — which is why the growing happens in
+ * a `scroll` handler. Those run synchronously as the scroll is applied, so
+ * they cannot be late.
+ *
+ * An `IntersectionObserver` would look far more like a real feed, and that is
+ * exactly the trap: its callback is asynchronous, and a late one leaves
+ * `scrollY` unchanged at the moment autoscroll looks. Autoscroll then reports
+ * `reachedBottom: true` and the test that depends on this fixture goes red for
+ * a reason that has nothing to do with what it is testing. A flaky fixture
+ * gets a `retry` bolted on eventually, and then it is testing nothing.
+ *
+ * What is wanted here is not realism. It is the guarantee that the bottom is
+ * never reached.
+ */
+const ENDLESS_FEED_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>endless</title></head><body style="margin:0">
+<div id="feed"></div>
+<script>
+var feed = document.getElementById("feed");
+var screens = 0;
+// Always keep three screens of runway below wherever we are. One would race
+// the check outright; two still races it on the fractional final step.
+function grow() {
+  var want = window.scrollY + window.innerHeight * 3;
+  while (feed.offsetHeight < want) {
+    var s = document.createElement("div");
+    s.style.height = "100vh";
+    s.textContent = "screen " + (++screens);
+    feed.appendChild(s);
+  }
+}
+addEventListener("scroll", grow);
+grow();
+</script>
+</body></html>`;
+
 const LAZY_IMAGES_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>lazy</title></head><body>
 <h1>top</h1>
 <div style="height:3000px">scroll down</div>
@@ -226,6 +266,8 @@ export function buildFixture(): FastifyInstance {
   app.get("/redirect-target", (_request, reply) => reply.type("text/html").send(REDIRECT_TARGET_HTML));
   app.get("/client-side-redirect", (_request, reply) => reply.type("text/html").send(CLIENT_SIDE_REDIRECT_HTML));
   app.get("/lazy-images", (_request, reply) => reply.type("text/html").send(LAZY_IMAGES_HTML));
+  app.get("/endless-feed", (_request, reply) =>
+    reply.type("text/html").send(ENDLESS_FEED_HTML));
   app.get("/cookie-banner", (_request, reply) => reply.type("text/html").send(COOKIE_BANNER_HTML));
 
   app.get("/cookie-and-storage", (_request, reply) =>
