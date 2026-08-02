@@ -6,6 +6,7 @@ import { scenarios } from "../src/scenarios.js";
 describe("scenarios URL contract", () => {
   it("builds parameterised paths", () => {
     expect(scenarios.plainHtml).toBe("/plain-html");
+    expect(scenarios.endlessFeed).toBe("/endless-feed");
     expect(scenarios.slowResponse(30000)).toBe("/slow-response?delayMs=30000");
     expect(scenarios.httpStatus(404)).toBe("/http-status/404");
     expect(scenarios.serverRedirectChain(3)).toBe("/server-redirect-chain/3");
