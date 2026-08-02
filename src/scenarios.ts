@@ -29,6 +29,8 @@ export const scenarios = {
   redirectTarget: "/redirect-target",
   /** Below-the-fold `loading="lazy"` image + IntersectionObserver — exercises auto-scroll. */
   lazyImages: "/lazy-images",
+  /** A page that grows as it is scrolled, so scrolling never reaches an end. */
+  endlessFeed: "/endless-feed",
   /** Fixed cookie-consent overlay — exercises banner dismissal. */
   cookieBanner: "/cookie-banner",
   /** Sets a cookie AND writes localStorage — exercises per-task state reset. */

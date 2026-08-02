@@ -62,6 +62,37 @@ Two mechanisms rather than one because they fail differently: native `lazy`
 responds to the viewport, the observer responds to layout. A behaviour that
 scrolls instantly to the bottom can satisfy one and miss the other.
 
+### `/endless-feed` — a page with no bottom
+
+A page that grows itself as it is scrolled. **Scrolling never reaches an end.**
+
+An archiver capturing an infinite feed has to give up somewhere. The question
+is not whether it gives up but whether the artifact says so, and this fixture
+is the giving-up case — without it, the thing you check against is a real
+website.
+
+:::caution[Do not "fix" this to use `IntersectionObserver`]
+Real feeds append with an observer. The `scroll` handler here is deliberate.
+
+BrowserHive's `autoscroll` decides it has reached the end by scrolling, waiting
+250ms, and checking whether `scrollY` moved. A `scroll` handler runs
+synchronously with the scroll, so the page has always grown by then. An
+observer callback is asynchronous, and one late callback produces a false
+report of having reached the bottom.
+
+The test then goes red — but what broke is the fixture, not the thing under
+test. A test that is red now and then eventually gets a `retry` bolted on, and
+after that it is testing nothing.
+
+What is wanted here is not realism. It is the guarantee that the bottom is
+never reached.
+:::
+
+Three screens of runway are kept below the scroll position at all times. One
+races the check outright; two still races it on the fractional final step. That
+the three matters is verified in browserhive's e2e — reduce it and that test
+turns red.
+
 ### `/cookie-banner` — a fixed overlay
 
 Content with a `position: fixed` bar pinned to the bottom, carrying a cookie

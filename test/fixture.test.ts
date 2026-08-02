@@ -38,6 +38,22 @@ describe("static pages", () => {
     expect(res.body).toContain("/assets/hero.svg");
   });
 
+  it("/endless-feed grows itself from a scroll handler, not an observer", async () => {
+    const res = await app.inject("/endless-feed");
+
+    expect(res.statusCode).toBe(200);
+    // The distinction this fixture exists for. A scroll handler runs
+    // synchronously with the scroll, so the page has always grown by the time
+    // BrowserHive's autoscroll checks whether `scrollY` moved. An
+    // IntersectionObserver callback can be late, and a late one makes
+    // autoscroll report that it reached the bottom of a page that has none.
+    expect(res.body).toContain('addEventListener("scroll"');
+    expect(res.body).not.toContain("IntersectionObserver");
+    // Runway, so growing never races the check. Verified against a real
+    // capture in browserhive's e2e; reducing it there turns that test red.
+    expect(res.body).toContain("window.innerHeight * 3");
+  });
+
   it("/cookie-banner has a fixed cookie overlay", async () => {
     const res = await app.inject("/cookie-banner");
     expect(res.body).toContain("cookie-banner");
