@@ -60,6 +60,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The root is a pnpm project, docs-site/ is an npm one. pnpm is here only
+      # to run the root's `site:check` script; the cache stays keyed on
+      # docs-site's lockfile because that is the only one installed here.
+      - uses: pnpm/action-setup@v6
+
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -70,4 +75,4 @@ jobs:
         run: npm ci --prefix docs-site
 
       - name: Build site and verify doc references
-        run: npm run site:check
+        run: pnpm run site:check

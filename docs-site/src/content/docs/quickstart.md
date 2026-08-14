@@ -82,7 +82,7 @@ services:
 
 ```sh
 # straight from a checkout, no container
-npm run build && MEADOW_PORT=9090 npm start
+pnpm run build && MEADOW_PORT=9090 pnpm start
 ```
 
 **As a library, these are ignored.** `buildFixture()` returns an unstarted

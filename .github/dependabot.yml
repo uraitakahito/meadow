@@ -5,7 +5,8 @@
 # develop にだけ置いても効かないので、両方に同じものを入れてある。
 #
 # この repo は npm プロジェクトを 2 つ持つ:
-#   /            … npm  (package-lock.json)
+#   /            … npm  (pnpm-lock.yaml — ecosystem 名は npm のままで pnpm の
+#                       lockfile を読む)
 #   /docs-site   … npm  (package-lock.json) — root とは別の lockfile
 # lockfile が別なら entry も別。`directory: /` だけでは docs-site に届かず、
 # 既定動作 (= default branch 宛て) にフォールバックする。

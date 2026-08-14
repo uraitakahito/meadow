@@ -6,12 +6,12 @@ description: Building and testing meadow, how consumers pin it as a submodule, a
 ## Commands
 
 ```sh
-npm run check   # typecheck + lint + test
-npm run build   # emit dist/
-npm start       # run dist/serve.js
+pnpm run check   # typecheck + lint + test
+pnpm run build   # emit dist/
+pnpm start       # run dist/serve.js
 ```
 
-`npm run check` is what CI runs. `build` is separate because consumers import
+`pnpm run check` is what CI runs. `build` is separate because consumers import
 from `dist/` — see below.
 
 ## How consumers use it
@@ -62,8 +62,8 @@ parameter rather than a constant.
 ## Documentation
 
 ```sh
-npm run site:dev     # local preview
-npm run site:check   # build + verify every doc reference resolves
+pnpm run site:dev     # local preview
+pnpm run site:check   # build + verify every doc reference resolves
 ```
 
 `site:check` runs in CI on every pull request. It catches two kinds of drift the
@@ -86,8 +86,17 @@ container build -t meadow .
 container run -d --name meadow meadow
 ```
 
-The Dockerfile is multi-stage: TypeScript is compiled in a full image, and the
-runtime image gets production dependencies plus `dist/` and `site/`. Both `npm
-ci` invocations pass `--ignore-scripts` — the build stage because sources are
-not copied yet when install runs, the runtime stage because `tsc` is not there
-at all.
+The Dockerfile has three stages. TypeScript is compiled in a full image, the
+production dependencies are installed into a stage of their own, and the runtime
+image takes `node_modules/` from the second and `dist/` from the first, plus
+`site/`.
+
+The production tree gets a stage rather than being pruned out of the build one:
+`pnpm install --prod` on top of a node_modules holding the dev tree rewrites it,
+and committing that layer wedges the builder for minutes. `pnpm deploy` is not
+an option either — it selects a project out of a workspace, and this repository
+declares no workspace packages.
+
+Both pnpm stages install corepack explicitly. Node stopped shipping it in 25, so
+`corepack enable` alone fails on `node:26` — and corepack is what reads
+`packageManager` from `package.json` and verifies its hash.

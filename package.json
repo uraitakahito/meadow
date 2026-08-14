@@ -15,22 +15,22 @@
   ],
   "scripts": {
     "generate:version": "node scripts/generate-version.mjs",
-    "prebuild": "npm run generate:version",
+    "prebuild": "pnpm run generate:version",
     "build": "tsc -p tsconfig.build.json",
-    "pretypecheck": "npm run generate:version",
+    "pretypecheck": "pnpm run generate:version",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "npm run generate:version",
+    "pretest": "pnpm run generate:version",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prelint": "npm run generate:version",
+    "prelint": "pnpm run generate:version",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "start": "node dist/serve.js",
     "site:dev": "npm --prefix docs-site run dev",
     "site:build": "npm --prefix docs-site run build",
     "site:preview": "npm --prefix docs-site run preview",
-    "site:check": "npm run site:build && node scripts/check-doc-refs.mjs",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "site:check": "pnpm run site:build && node scripts/check-doc-refs.mjs",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm test"
   },
   "keywords": [
     "fastify",
@@ -54,5 +54,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0",
     "vitest": "^4.1.10"
-  }
+  },
+  "//packageManager": "Read by pnpm/action-setup in CI and by corepack in the Dockerfile, so the version is written down once here rather than repeated in each. Same pin as the sibling repositories. See pnpm-workspace.yaml for the two places pnpm departs from npm silently (allowBuilds, enablePrePostScripts).",
+  "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee"
 }

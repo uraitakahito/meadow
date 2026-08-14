@@ -31,7 +31,7 @@ const ROOT = resolve(process.cwd(), "..");
  *
  * Every page in meadow is .md, so here the build is not a guard at all. The
  * one that holds the line is scripts/check-doc-refs.mjs, which exits non-zero
- * for both kinds. `npm run site:check` runs both; the workflows run
+ * for both kinds. `pnpm run site:check` runs both; the workflows run
  * `site:check`, never `site:build` alone.
  *
  * The name must run to the end of its line. `\b` is not enough: a word
