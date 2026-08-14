@@ -1,7 +1,7 @@
 # meadow — fixture-origin container.
 # Multi-stage: build TypeScript in a full image, ship only prod deps + dist + site.
 
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 # --ignore-scripts: prepare would fire before sources are copied; the build
@@ -22,7 +22,7 @@ ENV GIT_REV=$GIT_REV
 
 RUN npm run build
 
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
