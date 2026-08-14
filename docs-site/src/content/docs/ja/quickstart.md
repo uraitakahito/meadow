@@ -83,7 +83,7 @@ services:
 
 ```sh
 # チェックアウトから直接、コンテナなしで
-npm run build && MEADOW_PORT=9090 npm start
+pnpm run build && MEADOW_PORT=9090 pnpm start
 ```
 
 **ライブラリとして使う場合、これらは読まれません。** `buildFixture()` は

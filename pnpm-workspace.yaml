@@ -1,0 +1,31 @@
+# pnpm 11 は依存の lifecycle script を既定で実行しない (strictDepBuilds)。走らせて
+# よいものだけを明示する。
+#
+#   unrs-resolver — eslint-plugin-import-x が使う Rust 実装の path resolver。
+#                   native bindings の link が要る
+#
+# 1 つだけ。推測ではなく実測で、allowBuilds を空にして install すると
+# ERR_PNPM_IGNORED_BUILDS が unrs-resolver だけを名指しして落ちる。
+#
+# 兄弟リポジトリ (capping / browserhive) は esbuild も並べているが meadow には
+# 要らない。vitest 4 が使うバンドラは rolldown で、esbuild はこのツリーに
+# そもそも入っていない。capping は devDependencies が meadow と集合として同一
+# なのに lockfile には esbuild を持つので、**設定を写す前に確かめること**。
+#
+# 実行時依存の fastify / @fastify/static は install script を持たない。
+allowBuilds:
+  unrs-resolver: true
+
+# npm は pre<script> / post<script> を自動実行するが、pnpm は既定でしない。
+# meadow は prebuild / pretypecheck / pretest / prelint の 4 つを持ち、どれも
+# generate:version を呼ぶ。
+#
+# 欠けたときの壊れ方が tree の状態で変わるのが厄介で、clean checkout なら
+# src/generated/version.ts が無いので TS2307 で明示的に落ちる (gitignore された
+# 生成物なのでリポジトリには存在しない)。ところが生成物が残った tree では落ちず、
+# 古い version と revision がそのまま焼き込まれる —— /__version は「何から焼いたか」
+# を記録するための口なので、そこが嘘をつくのが一番避けたい壊れ方になる。
+#
+# 4 つの script を書き換えて明示的に呼ぶより、npm と同じ意味論を保つほうが
+# 差分も事故も小さい。
+enablePrePostScripts: true

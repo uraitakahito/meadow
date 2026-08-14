@@ -25,7 +25,7 @@
  * would have nothing to validate — and a check with zero subjects is worse than
  * no check, because it is permanently green and reads as coverage.
  *
- * Run via `npm run site:check` (build + this script). Exits 1 with a list of
+ * Run via `pnpm run site:check` (build + this script). Exits 1 with a list of
  * broken references so CI fails the PR. To see it work: rename a `#region` and
  * re-run — the offending doc reference goes red.
  */
