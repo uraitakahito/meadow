@@ -6,12 +6,12 @@ description: meadow のビルドとテスト、利用側からの submodule と�
 ## コマンド
 
 ```sh
-npm run check   # typecheck + lint + test
-npm run build   # dist/ を出力
-npm start       # dist/serve.js を実行
+pnpm run check   # typecheck + lint + test
+pnpm run build   # dist/ を出力
+pnpm start       # dist/serve.js を実行
 ```
 
-CI が回すのは `npm run check` です。
+CI が回すのは `pnpm run check` です。
 `build` が別なのは、利用側が `dist/` から import するからです（後述）。
 
 ## 利用側からの使われ方
@@ -64,8 +64,8 @@ submodule はソースがビルドされないままチェックアウトされ�
 ## ドキュメント
 
 ```sh
-npm run site:dev     # ローカルプレビュー
-npm run site:check   # ビルド + 参照がすべて解決することを検証
+pnpm run site:dev     # ローカルプレビュー
+pnpm run site:check   # ビルド + 参照がすべて解決することを検証
 ```
 
 `site:check` は全プルリクエストの CI で走ります。
@@ -89,8 +89,15 @@ container build -t meadow .
 container run -d --name meadow meadow
 ```
 
-Dockerfile はマルチステージで、TypeScript はフルイメージでコンパイルし、
-実行用イメージには本番依存と `dist/` と `site/` だけを載せます。
-`npm ci` はどちらのステージでも `--ignore-scripts` を付けています ―
-ビルドステージでは install 時点でまだソースをコピーしていないため、
-実行ステージではそもそも `tsc` が居ないためです。
+Dockerfile は 3 ステージです。TypeScript はフルイメージでコンパイルし、
+本番依存は専用のステージに入れ、実行用イメージは前者から `dist/`、
+後者から `node_modules/` を受け取って `site/` を足します。
+
+本番依存に専用ステージを割くのは、ビルドステージの上で削る方法が使えないためです。
+dev を含む node_modules に対する `pnpm install --prod` は書き換えになり、
+そのレイヤの commit でビルダが数分固まります。`pnpm deploy` も使えません ―
+workspace から project を選ぶコマンドで、この repo は workspace package を宣言しません。
+
+pnpm を使う 2 つのステージは corepack を明示的に入れています。Node 25 で本体から
+分離されたため `node:26` では `corepack enable` だけでは失敗し、しかも
+`package.json` の `packageManager` とその hash を読むのは corepack だからです。
