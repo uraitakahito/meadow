@@ -207,6 +207,7 @@ and once chosen, always produce a result.
 Run `unit` on every pull request and leave the meadow suite on manual dispatch.
 There is no reason for day-to-day CI to start a container.
 
-BrowserHive's [Running the tests](https://uraitakahito.github.io/browserhive/running-tests/)
-is this arrangement written out in full, including what each command reports and
-what to do when an E2E test fails.
+BrowserHive's own "Running the tests" page is this arrangement written out in
+full, including what each command reports and what to do when an E2E test fails.
+Those docs are not published on the web — build them from the BrowserHive
+checkout with `pnpm run docs:local`.
