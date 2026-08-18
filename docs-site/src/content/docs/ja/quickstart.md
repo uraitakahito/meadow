@@ -208,6 +208,7 @@ meadow の起動を忘れた CI が、何も検証しないまま成功を報告
 プルリクエストごとに回すのは `unit` だけにして、meadow を使うスイートは
 手動起動にしておきます。日常の CI がコンテナを起動する理由はありません。
 
-BrowserHive の[テストの実行](https://uraitakahito.github.io/browserhive/ja/running-tests/)に、
-この構成が余さず書かれています ― 各コマンドが何を出力するか、
-E2E が落ちたときに何をするか、まで含めて。
+BrowserHive 側の「テストの実行」に、この構成が余さず書かれています ―
+各コマンドが何を出力するか、E2E が落ちたときに何をするか、まで含めて。
+あちらの docs は web に公開されていないので、BrowserHive のチェックアウトで
+`pnpm run docs:local` を実行して読んでください。

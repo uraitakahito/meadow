@@ -37,11 +37,6 @@ export default defineConfig({
         // The consumer. BrowserHive is the only repository that uses meadow,
         // and its "Running the tests" page is the worked example the Quickstart
         // points at — so the exit belongs in the nav rather than buried in prose.
-        {
-          label: "BrowserHive Docs ↗",
-          translations: { ja: "BrowserHive Docs ↗" },
-          link: "https://uraitakahito.github.io/browserhive/",
-        },
       ],
     }),
   ],

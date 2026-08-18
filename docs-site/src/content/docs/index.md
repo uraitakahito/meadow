@@ -4,7 +4,7 @@ description: The synthetic internet that Chrome visits in BrowserHive and waggle
 ---
 
 meadow is a small Fastify server that plays the part of **the internet** in
-[BrowserHive](https://uraitakahito.github.io/browserhive/) and
+BrowserHive and
 [waggle](https://uraitakahito.github.io/waggle/) integration tests.
 
 ## Why a fixture-origin exists

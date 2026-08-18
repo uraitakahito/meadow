@@ -3,7 +3,7 @@ title: meadow
 description: BrowserHive と waggle の統合テストで Chrome が訪れる「合成インターネット」— 失敗を決定論的に再現する Fastify のフィクスチャオリジン
 ---
 
-meadow は、[BrowserHive](https://uraitakahito.github.io/browserhive/ja/) と
+meadow は、BrowserHive と
 [waggle](https://uraitakahito.github.io/waggle/ja/) の統合テストで
 **インターネットの役を演じる**小さな Fastify サーバです。
 
