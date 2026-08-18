@@ -17,3 +17,5 @@
 .idea/
 *.local
 *.log
+
+graphify-out/
