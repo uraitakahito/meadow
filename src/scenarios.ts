@@ -33,8 +33,15 @@ export const scenarios = {
   endlessFeed: "/endless-feed",
   /** Fixed cookie-consent overlay — exercises banner dismissal. */
   cookieBanner: "/cookie-banner",
-  /** Sets a cookie AND writes localStorage — exercises per-task state reset. */
-  cookieAndStorage: "/cookie-and-storage",
+  /**
+   * Reports the tag the browser arrived with (cookie and localStorage), then
+   * overwrites both with `tag` — exercises `session` isolation.
+   *
+   * Renders `cookie:<tag|fresh>` and `storage:<tag|fresh>`. Reporting a value
+   * rather than a yes/no keeps the assertion independent of whatever ran before.
+   */
+  cookieAndStorage: (tag: string): string =>
+    `/cookie-and-storage?tag=${encodeURIComponent(tag)}`,
 
   /** Waits `delayMs` before responding at all — exercises page-load timeouts. */
   slowResponse: (delayMs: number): string => `/slow-response?delayMs=${String(delayMs)}`,
