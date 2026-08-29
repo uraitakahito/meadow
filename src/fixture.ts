@@ -89,10 +89,25 @@ new IntersectionObserver((entries, obs) => {
 </script>
 </body></html>`;
 
-// Fixed cookie-consent overlay for dismissBanners to find and remove.
+/**
+ * Consent overlay that the heuristic pass of `dismissBanners` actually removes.
+ *
+ * The thresholds are the point. BrowserHive's second pass only removes an
+ * element that is `position: fixed|sticky`, has a computed `z-index` of at
+ * least 1000, and covers at least 30% of the viewport — the shape a real CMP
+ * modal has, and narrow enough that page furniture survives.
+ *
+ * The earlier version of this fixture was a 16px-tall bottom bar with no
+ * `z-index`. It matched none of those, so nothing ever removed it, and the
+ * comment claiming it was "for dismissBanners to find and remove" was simply
+ * untrue — nobody had checked, because no e2e sent `dismissBanners` at all.
+ *
+ * `#page-heading` stays outside the overlay so a test can tell "the banner was
+ * removed" from "the whole page failed to render".
+ */
 const COOKIE_BANNER_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>banner</title></head><body>
-<h1>content</h1>
-<div id="cookie-banner" style="position:fixed;bottom:0;left:0;right:0;background:#222;color:#fff;padding:16px">
+<h1 id="page-heading">content</h1>
+<div id="cookie-banner" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);color:#fff;padding:16px">
   We use cookies. <button onclick="document.getElementById('cookie-banner').remove()">Accept</button>
 </div>
 </body></html>`;
