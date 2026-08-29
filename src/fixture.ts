@@ -97,10 +97,28 @@ const COOKIE_BANNER_HTML = `<!doctype html><html><head><meta charset="utf-8"><ti
 </div>
 </body></html>`;
 
-// Sets a cookie and writes localStorage; resetPageState must clear both between tasks.
-const COOKIE_AND_STORAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>set-cookie</title></head><body>
-<h1>state</h1>
-<script>localStorage.setItem("meadow", Date.now().toString())</script>
+/**
+ * Reports the tag the browser arrived with, then overwrites it with `?tag=`.
+ *
+ * Reporting a *value* rather than a yes/no is what makes the `session` e2e
+ * independent of what ran before it. A shared browser context lives as long as
+ * the worker, so "the first visit sees nothing" only holds on a freshly started
+ * stack — asserting it made the suite pass once and fail on the second run.
+ * Asserting "the second visit sees the tag the first visit wrote" holds however
+ * dirty the context already was.
+ *
+ * The cookie is read server-side (it is HttpOnly); localStorage is read in the
+ * page, which is the only place it exists.
+ */
+const cookieAndStorageHtml = (cookieTag: string, nextTag: string): string =>
+  `<!doctype html><html><head><meta charset="utf-8"><title>state</title></head><body>
+<h1 id="cookie">cookie:${cookieTag}</h1>
+<h1 id="storage">storage:pending</h1>
+<script>
+  var had = localStorage.getItem("meadow");
+  document.getElementById("storage").textContent = "storage:" + (had === null ? "fresh" : had);
+  localStorage.setItem("meadow", ${JSON.stringify(nextTag)});
+</script>
 </body></html>`;
 
 const FAILING_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>retry</title></head><body><h1>retry</h1></body></html>`;
@@ -270,12 +288,14 @@ export function buildFixture(): FastifyInstance {
     reply.type("text/html").send(ENDLESS_FEED_HTML));
   app.get("/cookie-banner", (_request, reply) => reply.type("text/html").send(COOKIE_BANNER_HTML));
 
-  app.get("/cookie-and-storage", (_request, reply) =>
-    reply
-      .header("set-cookie", "meadow=1; Path=/; HttpOnly")
+  app.get<{ Querystring: { tag?: string } }>("/cookie-and-storage", (request, reply) => {
+    const nextTag = request.query.tag ?? "notag";
+    const arrived = /(?:^|;\s*)meadow=([A-Za-z0-9]+)/.exec(request.headers.cookie ?? "");
+    return reply
+      .header("set-cookie", `meadow=${nextTag}; Path=/; HttpOnly`)
       .type("text/html")
-      .send(COOKIE_AND_STORAGE_HTML),
-  );
+      .send(cookieAndStorageHtml(arrived?.[1] ?? "fresh", nextTag));
+  });
 
   app.get<{ Querystring: { delayMs?: string } }>("/slow-response", async (request, reply) => {
     const delayMs = Number(request.query.delayMs ?? "35000");
