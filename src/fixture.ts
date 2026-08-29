@@ -113,26 +113,46 @@ const COOKIE_BANNER_HTML = `<!doctype html><html><head><meta charset="utf-8"><ti
 </body></html>`;
 
 /**
- * Reports the tag the browser arrived with, then overwrites it with `?tag=`.
+ * Reports what the browser arrived carrying, then overwrites it with `?tag=`.
  *
- * Reporting a *value* rather than a yes/no is what makes the `session` e2e
- * independent of what ran before it. A shared browser context lives as long as
- * the worker, so "the first visit sees nothing" only holds on a freshly started
- * stack — asserting it made the suite pass once and fail on the second run.
- * Asserting "the second visit sees the tag the first visit wrote" holds however
- * dirty the context already was.
+ * ## Why a value, not a yes/no
  *
- * The cookie is read server-side (it is HttpOnly); localStorage is read in the
- * page, which is the only place it exists.
+ * A shared browser context lives as long as the worker, so "the first visit
+ * sees nothing" only holds on a freshly started stack — asserting it made the
+ * suite pass once and fail on the second run. "The second visit sees the tag
+ * the first visit wrote" holds however dirty the context already was.
+ *
+ * ## Why one JSON object, not one element per store
+ *
+ * Adding a store used to mean three edits: an element here, a line of script
+ * here, and a regex in the consumer's test. With a single JSON payload the
+ * consumer's reader never changes — a new store is one more key.
+ *
+ * ## Which store is which
+ *
+ *   cookie   — read server-side; it is HttpOnly, so the page cannot see it.
+ *              Carried by the browser context.
+ *   local    — localStorage. Carried by the browser context.
+ *   session  — sessionStorage. Carried by the *tab*, which is why it is the
+ *              only one of the three that can tell "same context" apart from
+ *              "same tab".
+ *
+ * Rendered into `<pre id="arrival">` rather than a `<script type="application/json">`
+ * so that opening the fixture in a browser by hand shows the payload directly.
  */
 const cookieAndStorageHtml = (cookieTag: string, nextTag: string): string =>
   `<!doctype html><html><head><meta charset="utf-8"><title>state</title></head><body>
-<h1 id="cookie">cookie:${cookieTag}</h1>
-<h1 id="storage">storage:pending</h1>
+<pre id="arrival">pending</pre>
 <script>
-  var had = localStorage.getItem("meadow");
-  document.getElementById("storage").textContent = "storage:" + (had === null ? "fresh" : had);
+  // Adding a store means one more key here — and nothing at all in the consumer.
+  var arrived = {
+    cookie: ${JSON.stringify(cookieTag)},
+    local: localStorage.getItem("meadow") ?? "fresh",
+    session: sessionStorage.getItem("meadow") ?? "fresh"
+  };
+  document.getElementById("arrival").textContent = JSON.stringify(arrived);
   localStorage.setItem("meadow", ${JSON.stringify(nextTag)});
+  sessionStorage.setItem("meadow", ${JSON.stringify(nextTag)});
 </script>
 </body></html>`;
 

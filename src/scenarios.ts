@@ -34,11 +34,20 @@ export const scenarios = {
   /** Fixed cookie-consent overlay — exercises banner dismissal. */
   cookieBanner: "/cookie-banner",
   /**
-   * Reports the tag the browser arrived with (cookie and localStorage), then
-   * overwrites both with `tag` — exercises `session` isolation.
+   * Reports what the browser arrived carrying, then overwrites it with `tag`
+   * — exercises `session` isolation.
    *
-   * Renders `cookie:<tag|fresh>` and `storage:<tag|fresh>`. Reporting a value
-   * rather than a yes/no keeps the assertion independent of whatever ran before.
+   * Renders one JSON object into `<pre id="arrival">`:
+   *
+   *   { "cookie": "<tag|fresh>", "local": "<tag|fresh>", "session": "<tag|fresh>" }
+   *
+   * Reporting a *value* rather than a yes/no keeps the assertion independent of
+   * whatever ran before. Reporting *one object* rather than one element per
+   * store keeps the reader unchanged when a store is added.
+   *
+   * `session` is the interesting one: sessionStorage is carried by the tab, not
+   * by the browser context, so it is the only key that can tell "the same
+   * context was reused" apart from "the same tab was reused".
    */
   cookieAndStorage: (tag: string): string =>
     `/cookie-and-storage?tag=${encodeURIComponent(tag)}`,
