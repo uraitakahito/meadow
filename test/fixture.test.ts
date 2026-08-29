@@ -62,7 +62,21 @@ describe("static pages", () => {
   it("/cookie-and-storage sets a cookie header", async () => {
     const res = await app.inject("/cookie-and-storage");
     expect(res.headers["set-cookie"]).toBeDefined();
+  });
+
+  it("/cookie-and-storage reports every store it writes", async () => {
+    // The point of this fixture is that a consumer can read one payload and
+    // learn about all three stores. If a store is written but not reported —
+    // or reported but not written — the consumer sees a green test that is
+    // measuring nothing. Name both halves here.
+    const res = await app.inject("/cookie-and-storage?tag=probe");
+
+    expect(res.body).toContain('id="arrival"');
+    for (const key of ["cookie:", "local:", "session:"]) {
+      expect(res.body).toContain(key);
+    }
     expect(res.body).toContain("localStorage.setItem");
+    expect(res.body).toContain("sessionStorage.setItem");
   });
 });
 
