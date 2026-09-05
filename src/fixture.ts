@@ -192,6 +192,36 @@ setTimeout(holdThread, 0);
  * capture that asked for it and wedges whatever runs next in the same tab.
  */
 const MAX_REPEAT_FOR_MS = 30_000;
+const MAX_DELAY_MS = 120_000;
+const MAX_BODY_BYTES = 64 * 1024 * 1024;
+const MAX_HOPS = 20;
+const MAX_FAIL_TIMES = 100;
+
+/**
+ * A JSON Schema for a set of integer parameters, each with a range.
+ *
+ * Every scenario knob is a bounded integer, and the point of bounding them is
+ * that a fixture whose whole job is reproducing a failure must not answer "200,
+ * quickly" when it cannot reproduce one. `Number("abc")` is `NaN`, `Number("")`
+ * is `0`, and neither throws — so an unchecked knob turns a test asking for a
+ * timeout into a test that passes for the wrong reason.
+ *
+ * Fastify coerces query and path strings to numbers from `type: "integer"`, so
+ * handlers read numbers and a malformed value is a 400 before the handler runs.
+ */
+const numbers = (
+  ranges: Record<string, [number, number]>,
+  required: string[] = [],
+): Record<string, unknown> => ({
+  type: "object",
+  properties: Object.fromEntries(
+    Object.entries(ranges).map(([name, [minimum, maximum]]) => [
+      name,
+      { type: "integer", minimum, maximum },
+    ]),
+  ),
+  ...(required.length > 0 && { required }),
+});
 
 /** Trickle `bytes` bytes of "a" over roughly `overMs` milliseconds, in ~10 chunks. */
 async function* slowBody(bytes: number, overMs: number): AsyncGenerator<Buffer> {
@@ -332,54 +362,96 @@ export function buildFixture(): FastifyInstance {
       .send(cookieAndStorageHtml(arrived?.[1] ?? "fresh", nextTag));
   });
 
-  app.get<{ Querystring: { delayMs?: string } }>("/slow-response", async (request, reply) => {
-    const delayMs = Number(request.query.delayMs ?? "35000");
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    return reply.type("text/html").send(`<!doctype html><h1>slept ${String(delayMs)}ms</h1>`);
-  });
+  app.get<{ Querystring: { delayMs?: number } }>(
+    "/slow-response",
+    { schema: { querystring: numbers({ delayMs: [0, MAX_DELAY_MS] }) } },
+    async (request, reply) => {
+      const delayMs = request.query.delayMs ?? 35_000;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return reply.type("text/html").send(`<!doctype html><h1>slept ${String(delayMs)}ms</h1>`);
+    },
+  );
 
-  app.get<{ Querystring: { holdMs?: string; repeatForMs?: string } }>(
+  app.get<{ Querystring: { holdMs?: number; repeatForMs?: number } }>(
     "/block-main-thread",
+    {
+      // The ceiling lives in the schema, not in a Math.min below it. Two
+      // ceilings for one value drift apart, and the one that loses is invisible.
+      schema: {
+        querystring: numbers({ holdMs: [0, MAX_REPEAT_FOR_MS], repeatForMs: [0, MAX_REPEAT_FOR_MS] }),
+      },
+    },
     (request, reply) => {
-      const holdMs = Number(request.query.holdMs ?? "1000");
-      const repeatForMs = Math.min(
-        Number(request.query.repeatForMs ?? "10000"),
-        MAX_REPEAT_FOR_MS,
-      );
+      const holdMs = request.query.holdMs ?? 1_000;
+      const repeatForMs = request.query.repeatForMs ?? 10_000;
       return reply.type("text/html").send(blockMainThreadHtml(holdMs, repeatForMs));
     },
   );
 
-  app.get<{ Params: { code: string } }>("/http-status/:code", (request, reply) => {
-    const code = Number(request.params.code);
-    return reply.code(code).type("text/html").send(`<!doctype html><h1>${String(code)}</h1>`);
-  });
+  app.get<{ Params: { code: number } }>(
+    "/http-status/:code",
+    { schema: { params: numbers({ code: [100, 599] }, ["code"]) } },
+    (request, reply) => {
+      const code = request.params.code;
+      return reply.code(code).type("text/html").send(`<!doctype html><h1>${String(code)}</h1>`);
+    },
+  );
 
-  app.get<{ Params: { hops: string } }>("/server-redirect-chain/:hops", (request, reply) => {
-    const hops = Number(request.params.hops);
-    const target = hops > 0 ? `/server-redirect-chain/${String(hops - 1)}` : "/redirect-target";
-    return reply.redirect(target, 302);
-  });
+  app.get<{ Params: { hops: number } }>(
+    "/server-redirect-chain/:hops",
+    { schema: { params: numbers({ hops: [0, MAX_HOPS] }, ["hops"]) } },
+    (request, reply) => {
+      const hops = request.params.hops;
+      const target = hops > 0 ? `/server-redirect-chain/${String(hops - 1)}` : "/redirect-target";
+      return reply.redirect(target, 302);
+    },
+  );
 
-  app.get<{ Querystring: { bytes?: string } }>("/large-body", (request, reply) => {
-    const bytes = Number(request.query.bytes ?? "1048576");
-    return reply.type("text/plain").send("a".repeat(bytes));
-  });
+  app.get<{ Querystring: { bytes?: number } }>(
+    "/large-body",
+    { schema: { querystring: numbers({ bytes: [0, MAX_BODY_BYTES] }) } },
+    (request, reply) => {
+      const bytes = request.query.bytes ?? 1_048_576;
+      return reply.type("text/plain").send("a".repeat(bytes));
+    },
+  );
 
-  app.get<{ Querystring: { bytes?: string; overMs?: string } }>("/slow-body", (request, reply) => {
-    const bytes = Number(request.query.bytes ?? "65536");
-    const overMs = Number(request.query.overMs ?? "5000");
-    return reply.type("text/plain").send(Readable.from(slowBody(bytes, overMs)));
-  });
+  app.get<{ Querystring: { bytes?: number; overMs?: number } }>(
+    "/slow-body",
+    {
+      schema: {
+        querystring: numbers({ bytes: [0, MAX_BODY_BYTES], overMs: [0, MAX_DELAY_MS] }),
+      },
+    },
+    (request, reply) => {
+      const bytes = request.query.bytes ?? 65_536;
+      const overMs = request.query.overMs ?? 5_000;
+      return reply.type("text/plain").send(Readable.from(slowBody(bytes, overMs)));
+    },
+  );
 
-  app.get<{ Querystring: { failTimes?: string; key?: string } }>("/fails-then-succeeds", (request, reply) => {
-    const key = request.query.key ?? "default";
-    const failTimes = Number(request.query.failTimes ?? "2");
-    const n = (failureCounts.get(key) ?? 0) + 1;
-    failureCounts.set(key, n);
-    if (n <= failTimes) return reply.code(503).type("text/html").send(FAILING_HTML);
-    return reply.type("text/html").send(SUCCEEDED_HTML);
-  });
+  app.get<{ Querystring: { failTimes?: number; key?: string } }>(
+    "/fails-then-succeeds",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            failTimes: { type: "integer", minimum: 0, maximum: MAX_FAIL_TIMES },
+            key: { type: "string" },
+          },
+        },
+      },
+    },
+    (request, reply) => {
+      const key = request.query.key ?? "default";
+      const failTimes = request.query.failTimes ?? 2;
+      const n = (failureCounts.get(key) ?? 0) + 1;
+      failureCounts.set(key, n);
+      if (n <= failTimes) return reply.code(503).type("text/html").send(FAILING_HTML);
+      return reply.type("text/html").send(SUCCEEDED_HTML);
+    },
+  );
 
   // Test-only introspection: read counters, reset all in-memory state.
   app.get("/__request-counts", () => Object.fromEntries(hits));
