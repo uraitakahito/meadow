@@ -156,6 +156,45 @@ const cookieAndStorageHtml = (cookieTag: string, nextTag: string): string =>
 </script>
 </body></html>`;
 
+/**
+ * The image variants a 1280px / DPR 1 capture never asks for.
+ *
+ * BrowserHive's `autofetch` exists to pull these in: at DPR 1 the browser picks
+ * one candidate per element and never requests the rest, so a Retina replay
+ * finds them missing. Until this page existed the behaviour had nothing to act
+ * on — its e2e ran against `/plain-html`, which has no images at all, and could
+ * only assert that autofetch had run, never what it fetched.
+ *
+ * One shape per element, so a failure names itself:
+ *
+ *   srcset       the classic 1x/2x/3x case
+ *   picture      `<source>`, chosen by media query rather than DPR
+ *   data-srcset  lazy variants, invisible until script rewrites them
+ *   poster       the one that is not an `<img>` at all
+ *
+ * `hero.svg` is the control: the browser requests it unprompted, so a run where
+ * only it arrives says "autofetch did not run", not "the page failed to load".
+ *
+ * **The media query must not match 1280px.** At `min-width: 2000px` the browser
+ * can never choose `wide.svg`, so its arrival is proof that autofetch fetched
+ * it. Lowering the threshold to something a 1280px viewport matches would let
+ * the browser pick it unprompted and the downstream control would stop
+ * discriminating — silently, since both runs would still be green.
+ */
+const RESPONSIVE_IMAGES_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>responsive</title></head><body>
+<h1>responsive</h1>
+<img src="/assets/hero.svg"
+     srcset="/assets/hero.svg 1x, /assets/hero-2x.svg 2x, /assets/hero-3x.svg 3x"
+     width="64" height="64" alt="srcset">
+<picture>
+  <source srcset="/assets/wide.svg" media="(min-width: 2000px)">
+  <img src="/assets/narrow.svg" width="64" height="64" alt="picture">
+</picture>
+<img data-src="/assets/hero.svg" data-srcset="/assets/hero-2x.svg 2x"
+     width="64" height="64" alt="lazy variants">
+<video poster="/assets/poster.svg" width="64" height="64"></video>
+</body></html>`;
+
 const FAILING_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>retry</title></head><body><h1>retry</h1></body></html>`;
 const SUCCEEDED_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>ok</title></head><body><h1>ok</h1></body></html>`;
 
@@ -352,6 +391,8 @@ export function buildFixture(): FastifyInstance {
   app.get("/endless-feed", (_request, reply) =>
     reply.type("text/html").send(ENDLESS_FEED_HTML));
   app.get("/cookie-banner", (_request, reply) => reply.type("text/html").send(COOKIE_BANNER_HTML));
+  app.get("/responsive-images", (_request, reply) =>
+    reply.type("text/html").send(RESPONSIVE_IMAGES_HTML));
 
   app.get<{ Querystring: { tag?: string } }>("/cookie-and-storage", (request, reply) => {
     const nextTag = request.query.tag ?? "notag";

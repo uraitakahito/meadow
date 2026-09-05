@@ -31,6 +31,15 @@ export const scenarios = {
   lazyImages: "/lazy-images",
   /** A page that grows as it is scrolled, so scrolling never reaches an end. */
   endlessFeed: "/endless-feed",
+  /**
+   * Image variants a 1280px / DPR 1 capture never requests on its own —
+   * `srcset`, `<picture><source>`, `data-srcset` and `poster`.
+   *
+   * Exercises BrowserHive's `autofetch`: without it only the control image
+   * (`hero.svg`) arrives, because the browser picks one candidate per element.
+   */
+  responsiveImages: "/responsive-images",
+
   /** Fixed cookie-consent overlay — exercises banner dismissal. */
   cookieBanner: "/cookie-banner",
   /**
