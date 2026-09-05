@@ -57,6 +57,37 @@ describe("static pages", () => {
     expect(res.body).toContain("cookie-banner");
   });
 
+  it("/responsive-images offers variants the browser will not pick at DPR 1", async () => {
+    const res = await fetchOk(app, "/responsive-images");
+
+    // The four shapes autofetch looks for. Each is a separate element so a
+    // downstream failure names which one was missed.
+    expect(res.body).toContain(`srcset="/assets/hero.svg 1x`);
+    expect(res.body).toContain("data-srcset=");
+    expect(res.body).toContain("<source");
+    expect(res.body).toContain(`poster="/assets/poster.svg"`);
+
+    // **The threshold is load-bearing.** The capture viewport is 1280px, so a
+    // media query the browser could match would let it choose wide.svg itself
+    // — and the downstream control ("autofetch off ⇒ wide.svg absent") would
+    // stop discriminating while staying green.
+    expect(res.body).toContain("min-width: 2000px");
+
+    // The control: requested unprompted, so its absence means the page broke
+    // rather than that autofetch was off.
+    expect(res.body).toContain(`src="/assets/hero.svg"`);
+  });
+
+  // A page referencing an asset that 404s would make the downstream assertion
+  // fail for the wrong reason — "autofetch did not fetch it" instead of
+  // "the fixture cannot serve it".
+  it.each(["hero.svg", "below.svg", "hero-2x.svg", "hero-3x.svg", "wide.svg", "narrow.svg", "poster.svg"])(
+    "serves /assets/%s",
+    async (name) => {
+      await fetchOk(app, `/assets/${name}`);
+    },
+  );
+
   it("/cookie-and-storage sets a cookie header", async () => {
     const res = await fetchOk(app, "/cookie-and-storage");
     expect(res.headers["set-cookie"]).toBeDefined();

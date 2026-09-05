@@ -102,6 +102,33 @@ Whatever a consumer does about overlays — remove them, ignore them, click
 through them — this is a page where one demonstrably exists, so the difference
 between "handled" and "not handled" is visible in a screenshot.
 
+### `/responsive-images` — variants a capture never asks for
+
+Four elements, each offering an image the browser will not request at the
+capture viewport: an `<img srcset>` with 1x/2x/3x, a `<picture>` whose
+`<source>` is behind a media query, an `<img data-srcset>`, and a
+`<video poster>`.
+
+A capture at 1280px and DPR 1 picks exactly one candidate per element. The
+others are never requested, so a Retina replay finds them missing — the failure
+BrowserHive's `autofetch` behaviour exists to prevent. Before this page, that
+behaviour had nothing to act on: its test ran against `/plain-html`, which has
+no images, and could only assert that autofetch had run.
+
+`hero.svg` is the control. The browser requests it unprompted, so a run where
+only it arrives says "autofetch did not run", not "the page failed to load".
+
+:::caution[The media query threshold is load-bearing]
+`<source>` is behind `(min-width: 2000px)` and the capture viewport is 1280px,
+so the browser can never choose `wide.svg`. Its arrival is therefore proof that
+something fetched it deliberately.
+
+Lowering that threshold to a width a capture does match would let the browser
+pick it unprompted. A consumer's control test — "with autofetch off, the
+variant is absent" — would stop discriminating, and would keep passing while it
+did.
+:::
+
 ### `/cookie-and-storage` — state that outlives a page
 
 Sets `meadow=1` as an HttpOnly cookie **and** writes to `localStorage`.
