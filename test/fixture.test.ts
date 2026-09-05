@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildFixture, REQUEST_LOG_LIMIT, type RequestLog } from "../src/fixture.js";
+import { fetchOk } from "./helpers.js";
 
 let app: ReturnType<typeof buildFixture>;
 
@@ -14,26 +15,23 @@ afterEach(async () => {
 
 describe("static pages", () => {
   it("/health returns ok", async () => {
-    const res = await app.inject("/health");
-    expect(res.statusCode).toBe(200);
+    const res = await fetchOk(app, "/health");
     expect(res.json()).toEqual({ ok: true });
   });
 
   it("/plain-html returns 200 HTML", async () => {
-    const res = await app.inject("/plain-html");
-    expect(res.statusCode).toBe(200);
+    const res = await fetchOk(app, "/plain-html");
     expect(res.headers["content-type"]).toContain("text/html");
     expect(res.body).toContain("<h1>ok</h1>");
   });
 
   it("/client-side-redirect ships a client-side location.replace", async () => {
-    const res = await app.inject("/client-side-redirect");
-    expect(res.statusCode).toBe(200);
+    const res = await fetchOk(app, "/client-side-redirect");
     expect(res.body).toContain('location.replace("/redirect-target")');
   });
 
   it("/lazy-images has a below-the-fold lazy image", async () => {
-    const res = await app.inject("/lazy-images");
+    const res = await fetchOk(app, "/lazy-images");
     expect(res.body).toContain('loading="lazy"');
     expect(res.body).toContain("/assets/hero.svg");
   });
@@ -55,12 +53,12 @@ describe("static pages", () => {
   });
 
   it("/cookie-banner has a fixed cookie overlay", async () => {
-    const res = await app.inject("/cookie-banner");
+    const res = await fetchOk(app, "/cookie-banner");
     expect(res.body).toContain("cookie-banner");
   });
 
   it("/cookie-and-storage sets a cookie header", async () => {
-    const res = await app.inject("/cookie-and-storage");
+    const res = await fetchOk(app, "/cookie-and-storage");
     expect(res.headers["set-cookie"]).toBeDefined();
   });
 
@@ -69,7 +67,7 @@ describe("static pages", () => {
     // learn about all three stores. If a store is written but not reported —
     // or reported but not written — the consumer sees a green test that is
     // measuring nothing. Name both halves here.
-    const res = await app.inject("/cookie-and-storage?tag=probe");
+    const res = await fetchOk(app, "/cookie-and-storage?tag=probe");
 
     expect(res.body).toContain('id="arrival"');
     for (const key of ["cookie:", "local:", "session:"]) {
@@ -104,13 +102,12 @@ describe("controllable responses", () => {
   });
 
   it("/big returns a body of the requested size", async () => {
-    const res = await app.inject("/large-body?bytes=100");
+    const res = await fetchOk(app, "/large-body?bytes=100");
     expect(res.rawPayload.length).toBe(100);
   });
 
   it("/slow-body trickles the requested number of bytes", async () => {
-    const res = await app.inject("/slow-body?bytes=50&overMs=0");
-    expect(res.statusCode).toBe(200);
+    const res = await fetchOk(app, "/slow-body?bytes=50&overMs=0");
     expect(res.rawPayload.length).toBe(50);
   });
 });
@@ -134,10 +131,10 @@ describe("stateful fails-then-succeeds", () => {
 
 describe("introspection", () => {
   it("/__request-counts counts requests per URL", async () => {
-    await app.inject("/plain-html");
-    await app.inject("/plain-html");
-    await app.inject("/redirect-target");
-    const hits = (await app.inject("/__request-counts")).json<Record<string, number>>();
+    await fetchOk(app, "/plain-html");
+    await fetchOk(app, "/plain-html");
+    await fetchOk(app, "/redirect-target");
+    const hits = (await fetchOk(app, "/__request-counts")).json<Record<string, number>>();
     expect(hits["/plain-html"]).toBe(2);
     expect(hits["/redirect-target"]).toBe(1);
   });
@@ -151,7 +148,7 @@ describe("introspection", () => {
     const etag = first.headers.etag!;
     await app.inject({ url: "/cacheable", headers: { "if-none-match": etag } });
 
-    const log = (await app.inject("/__requests")).json<RequestLog>();
+    const log = (await fetchOk(app, "/__requests")).json<RequestLog>();
 
     // Arrival order matters as much as the contents: the statement being made
     // is "the first was unconditional and the second was not".
@@ -175,7 +172,7 @@ describe("introspection", () => {
       },
     });
 
-    const log = (await app.inject("/__requests")).json<RequestLog>();
+    const log = (await fetchOk(app, "/__requests")).json<RequestLog>();
     const only = log.requests[0];
 
     expect(only?.acceptLanguage).toBe("ja-JP,ja;q=0.9");
@@ -188,11 +185,11 @@ describe("introspection", () => {
   it("/__requests does not record the introspection endpoints themselves", async () => {
     // Looking at the log must not change what the log says. Otherwise reading
     // "was the second request conditional?" means first subtracting the reads.
-    await app.inject("/plain-html");
+    await fetchOk(app, "/plain-html");
     await app.inject("/__requests");
     await app.inject("/__request-counts");
 
-    const log = (await app.inject("/__requests")).json<RequestLog>();
+    const log = (await fetchOk(app, "/__requests")).json<RequestLog>();
     expect(log.requests.map((r) => r.url)).toEqual(["/plain-html"]);
   });
 
@@ -204,28 +201,29 @@ describe("introspection", () => {
       await app.inject(`/plain-html?i=${String(i)}`);
     }
 
-    const log = (await app.inject("/__requests")).json<RequestLog>();
+    const log = (await fetchOk(app, "/__requests")).json<RequestLog>();
     expect(log.truncated).toBe(true);
     expect(log.requests).toHaveLength(REQUEST_LOG_LIMIT);
     expect(log.requests[0]?.url).not.toContain("i=0");
   });
 
   it("/__reset clears the request log as well", async () => {
-    await app.inject("/plain-html");
+    await fetchOk(app, "/plain-html");
     await app.inject({ method: "POST", url: "/__reset" });
 
-    const log = (await app.inject("/__requests")).json<RequestLog>();
+    const log = (await fetchOk(app, "/__requests")).json<RequestLog>();
     expect(log).toEqual({ requests: [], truncated: false });
   });
 
   it("/__reset clears counters and failure state", async () => {
-    await app.inject("/fails-then-succeeds?failTimes=1&key=r");
-    await app.inject("/plain-html");
+    // The first hit on a fresh key is meant to fail — that is the scenario.
+    await fetchOk(app, "/fails-then-succeeds?failTimes=1&key=r", 503);
+    await fetchOk(app, "/plain-html");
     const reset = await app.inject({ method: "POST", url: "/__reset" });
     expect(reset.statusCode).toBe(200);
 
     // Counters gone (only this /__request-counts request is counted now).
-    const hits = (await app.inject("/__request-counts")).json<Record<string, number>>();
+    const hits = (await fetchOk(app, "/__request-counts")).json<Record<string, number>>();
     expect(hits["/plain-html"]).toBeUndefined();
     // Flaky counter reset, so key=r fails again on its fresh first request.
     expect((await app.inject("/fails-then-succeeds?failTimes=1&key=r")).statusCode).toBe(503);
@@ -244,12 +242,21 @@ describe("block-main-thread", () => {
     // If this regresses, the cost lands on the consumer's navigation budget
     // instead of its in-page operation budgets, and the scenario silently
     // stops testing what it exists to test.
-    const res = await app.inject("/block-main-thread");
+    const res = await fetchOk(app, "/block-main-thread");
     expect(res.body).toContain("setTimeout(holdThread, 0);\n</script>");
   });
 
-  it("caps repeatForMs so a page cannot hold its thread forever", async () => {
+  // The cap used to clamp silently: repeatForMs=999999 became 30000 and the
+  // caller was told nothing. Rounding a request into a different request is the
+  // same failure this fixture exists to avoid — a scenario that quietly is not
+  // the scenario that was asked for. Over the ceiling is now a 400.
+  it("refuses a repeatForMs above the ceiling instead of rounding it", async () => {
     const res = await app.inject("/block-main-thread?repeatForMs=999999");
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("still accepts repeatForMs at the ceiling", async () => {
+    const res = await fetchOk(app, "/block-main-thread?repeatForMs=30000");
     expect(res.body).toContain("Date.now() + 30000");
   });
 });
@@ -280,5 +287,53 @@ describe("static assets", () => {
     const res = await app.inject("/assets/hero.svg");
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("image/svg");
+  });
+});
+
+/**
+ * Malformed knobs are refused, not silently reinterpreted.
+ *
+ * `Number("abc")` is `NaN` and `Number("")` is `0`, and neither throws. Before
+ * these schemas, `?delayMs=abc` answered 200 in ~2ms — a consumer asking for a
+ * timeout got a fast success and its test passed for the wrong reason. That is
+ * the worst thing a fixture can do, so each knob now has a range and anything
+ * outside it is a 400 before the handler runs.
+ */
+describe("malformed scenario parameters", () => {
+  let app: ReturnType<typeof buildFixture>;
+
+  beforeEach(() => {
+    app = buildFixture();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it.each([
+    ["not a number", "/slow-response?delayMs=abc"],
+    ["negative", "/slow-response?delayMs=-1"],
+    ["empty", "/slow-response?delayMs="],
+    ["over the ceiling", "/slow-response?delayMs=999999999"],
+    ["status not a number", "/http-status/abc"],
+    ["status out of range", "/http-status/999"],
+    ["bytes not a number", "/large-body?bytes=abc"],
+    ["slow-body overMs not a number", "/slow-body?bytes=10&overMs=abc"],
+    ["hops not a number", "/server-redirect-chain/abc"],
+    ["failTimes not a number", "/fails-then-succeeds?failTimes=abc"],
+  ])("rejects %s", async (_name, url) => {
+    expect((await app.inject(url)).statusCode).toBe(400);
+  });
+
+  // Coercion still has to work, or every consumer breaks at once.
+  it.each([
+    ["/slow-response?delayMs=5", 200],
+    ["/http-status/503", 503],
+    ["/http-status/204", 204],
+    ["/server-redirect-chain/2", 302],
+    ["/large-body?bytes=100", 200],
+    ["/slow-body?bytes=10&overMs=0", 200],
+  ])("still serves %s", async (url, expected) => {
+    expect((await app.inject(url)).statusCode).toBe(expected);
   });
 });
